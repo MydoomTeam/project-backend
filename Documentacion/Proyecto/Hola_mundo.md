@@ -136,7 +136,7 @@ uvicorn app.main:app --reload --app-dir src
 ## Hola Mundo con BD (solo backend)
 
 ### 1) Conexion a la BD
-El endpoint `GET /hola` ejecuta un `SELECT 1` para validar conexion.
+El endpoint `GET /hola` valida la conexion usando el ORM (SQLAlchemy), consultando la entidad `Jugador`.
 
 ### 2) Entidad minima
 Se usa la entidad `Jugador` con tabla `JUGADOR` (del SQL). Ejemplo de la clase:
