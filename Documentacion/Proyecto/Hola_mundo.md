@@ -197,4 +197,3 @@ Si el GET devuelve 404, primero crea el jugador con POST.
 ```
 docker compose down -v
 ```
-- 405 en `/api/jugadores`: el endpoint acepta solo POST, el navegador hace GET.

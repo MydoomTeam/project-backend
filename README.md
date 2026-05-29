@@ -137,22 +137,3 @@ POST `http://localhost:8000/api/jugadores`
 Luego:
 
 GET `http://localhost:8000/api/jugadores/1`
-
-## Evidencia docker-compose
-
-Para la evidencia solicitada:
-
-```
-docker ps -a
-```
-
-Tomar captura y guardar en:
-
-```
-Asignaciones/docker-compose.png
-```
-
-## Notas
-
-- `GET /api/jugadores` devuelve 405 porque solo existe POST. Usa POST para crear.
-- Si `GET /api/jugadores/{id}` devuelve 404, primero crea el jugador con POST.
