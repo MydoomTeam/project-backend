@@ -1,6 +1,6 @@
 from datetime import date
-
-from pydantic import BaseModel, ConfigDict
+from typing import Optional
+from pydantic import BaseModel, ConfigDict, Field, EmailStr
 
 
 class JugadorCreate(BaseModel):
@@ -22,3 +22,9 @@ class JugadorRead(BaseModel):
     rol: str
     fecha_ultimo_acceso: date
     elo_global: int
+
+
+class UsuarioRegistro(BaseModel):
+    nombre_usuario: str = Field(min_length=3,max_length=30)
+    correo_electronico: EmailStr
+    contrasena: str = Field(min_length=8)
