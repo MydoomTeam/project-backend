@@ -29,7 +29,16 @@ async def lifespan(app: FastAPI):
     yield
 
 
+from app.api.tournaments import router as tournaments_router
+from app.core.database import Base, engine
+from app.controllers.health_controller import router as health_router
+from app.controllers.jugador_controller import router as jugador_router
+from app.models import audit_log, match, registration, tournament
+
 app = FastAPI(title="ArenaSync Backend", lifespan=lifespan)
+app = FastAPI(title="ArenaSync Backend")
+
+Base.metadata.create_all(bind=engine)
 
 
 @app.exception_handler(RequestValidationError)
@@ -43,6 +52,9 @@ async def request_validation_handler(_request, exc: RequestValidationError):
 app.include_router(admin_router, prefix="/api")
 app.include_router(torneo_router, prefix="/api")
 app.include_router(alerta_router, prefix="/api")
+app.include_router(health_router)
+app.include_router(jugador_router, prefix="/api")
+app.include_router(tournaments_router, prefix="/api")
 
 
 @app.get("/")
