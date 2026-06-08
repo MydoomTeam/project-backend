@@ -7,6 +7,19 @@ class MatchResponse(BaseModel):
     id: int
     torneo_id: int
     ronda: int
-    jugador1_id: int
+    posicion: int
+    jugador1_id: int | None
     jugador2_id: int | None
+    ganador_id: int | None
     estado: str
+
+
+class ResultadoRequest(BaseModel):
+    ganador_id: int
+
+
+class ResultadoResponse(BaseModel):
+    match: MatchResponse
+    ganador_nuevo_elo: int
+    perdedor_nuevo_elo: int
+    torneo_finalizado: bool

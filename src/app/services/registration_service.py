@@ -20,6 +20,12 @@ class RegistrationService:
                 detail="El torneo no existe o no está disponible para inscripción",
             )
 
+        if jugador_id == torneo.creador_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="El administrador del torneo no puede inscribirse como participante",
+            )
+
         if self.registration_repo.existe_inscripcion_activa(data.torneo_id, jugador_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
