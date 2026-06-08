@@ -9,9 +9,10 @@ import secrets
 import logging
 
 from app.domain.models.jugador import Jugador
-from app.domain.schemas.jugador import (JugadorCreate, LoginRequest, UsuarioRegistro)
+from app.domain.schemas.jugador import (JugadorCreate, LoginRequest, LoginResponse, UsuarioRegistro)
 from app.repositories.jugador_repository import JugadorRepository
 from app.domain.schemas.jugador import UsuarioRegistro
+from app.core.auth import create_access_token
 
 
 logger = logging.getLogger(
@@ -69,7 +70,7 @@ class JugadorService:
         ).hex()
         return nuevo_hash == hash_guardado
     
-    def iniciar_sesion(self,data:LoginRequest):
+    def iniciar_sesion(self,data:LoginRequest) -> LoginResponse | None:
         jugador = self.repo.obtener_por_login(data.identificador)
         if jugador is None:
             return None
@@ -80,5 +81,8 @@ class JugadorService:
         if not valido:
             return None
         actualizado = self.repo.actualizar_ultimo_acceso(jugador)
-        return actualizado
+        return LoginResponse(
+            access_token=create_access_token(actualizado.id),
+            jugador=actualizado,
+        )
 

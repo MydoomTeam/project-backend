@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.domain.schemas.jugador import JugadorCreate, JugadorRead
+from app.domain.schemas.jugador import JugadorCreate, JugadorRead, LoginResponse
 from app.services.jugador_service import JugadorService
 from app.domain.schemas.jugador import UsuarioRegistro
 from app.domain.schemas.jugador import LoginRequest
@@ -38,7 +38,7 @@ def registrar_usuario(payload: UsuarioRegistro,db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail=errores)
     return resultado
 
-@router.post("/usuarios/login", response_model=JugadorRead)
+@router.post("/usuarios/login", response_model=LoginResponse)
 def iniciar_sesion(payload: LoginRequest, db: Session = Depends(get_db)):
     service = JugadorService(db)
     jugador = service.iniciar_sesion(payload)

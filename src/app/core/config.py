@@ -12,6 +12,10 @@ class Settings:
         "DATABASE_URL",
         "postgresql+psycopg2://arenasync:arenasync@localhost:5432/arenasyncdb",
     )
+    auth_secret: str = os.getenv(
+        "AUTH_SECRET",
+        "arenasync-development-secret",
+    )
 
 
 settings = Settings()
