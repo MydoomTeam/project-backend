@@ -12,6 +12,9 @@ class TournamentService:
     def __init__(self, db: Session):
         self.repo = TournamentRepository(db)
 
+    def obtener_torneos_disponibles(self) -> list[TournamentModel]:
+        return self.repo.listar_disponibles()
+
     def crear_torneo(self, data: TournamentCreate, creador_id: int) -> TournamentModel:
         if data.tipo_eliminacion == "Eliminación Sencilla" and data.rondas > 7:
             raise HTTPException(

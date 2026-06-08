@@ -16,3 +16,7 @@ class TournamentResponse(BaseModel):
     rondas: int
     estado: str
     creador_id: int
+
+
+class TournamentListResponse(TournamentResponse):
+    pass

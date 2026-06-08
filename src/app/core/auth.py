@@ -6,6 +6,8 @@ import hmac
 import json
 import time
 
+from fastapi import Header, HTTPException, status
+
 from app.core.config import settings
 
 
@@ -37,3 +39,23 @@ def resolve_user_id(token: str) -> int | None:
         return user_id if isinstance(user_id, int) and user_id > 0 else None
     except (ValueError, json.JSONDecodeError, UnicodeDecodeError):
         return None
+
+
+def get_current_user(authorization: str | None = Header(default=None, alias="Authorization")) -> int:
+    if authorization is None or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuario no autenticado",
+        )
+
+    token = authorization.removeprefix("Bearer ").strip()
+    user_id = resolve_user_id(token)
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuario no autenticado",
+        )
+    return user_id
+
+
+get_current_user_id = get_current_user

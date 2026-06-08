@@ -4,7 +4,7 @@ from app.api.tournaments import router as tournaments_router
 from app.core.database import Base, engine
 from app.controllers.health_controller import router as health_router
 from app.controllers.jugador_controller import router as jugador_router
-from app.models import audit_log, tournament
+from app.models import audit_log, registration, tournament
 
 app = FastAPI(title="ArenaSync Backend")
 

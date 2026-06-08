@@ -11,12 +11,20 @@ class TournamentRepository:
     def __init__(self, db: Session):
         self.db = db
 
+    def obtener_por_id(self, torneo_id: int) -> TournamentModel | None:
+        stmt = select(TournamentModel).where(TournamentModel.id == torneo_id)
+        return self.db.execute(stmt).scalars().first()
+
     def obtener_por_nombre_activo(self, nombre: str) -> TournamentModel | None:
         stmt = select(TournamentModel).where(
             TournamentModel.nombre == nombre,
             TournamentModel.estado != "Finalizado",
         )
         return self.db.execute(stmt).scalars().first()
+
+    def listar_disponibles(self) -> list[TournamentModel]:
+        stmt = select(TournamentModel).where(TournamentModel.estado == "Pendiente").order_by(TournamentModel.id.asc())
+        return list(self.db.execute(stmt).scalars().all())
 
     def guardar_con_auditoria(
         self,

@@ -1,35 +1,40 @@
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from app.core.auth import resolve_user_id
+from app.core.auth import get_current_user
 from app.core.database import get_db
-from app.schemas.tournament import TournamentCreate, TournamentResponse
+from app.schemas.registration import RegistrationCreate, RegistrationResponse
+from app.schemas.tournament import TournamentCreate, TournamentListResponse, TournamentResponse
+from app.services.registration_service import RegistrationService
 from app.services.tournament_service import TournamentService
 
 router = APIRouter(tags=["tournaments"])
 
 
-def get_current_user_id(authorization: str | None = Header(default=None, alias="Authorization")) -> int:
-    if authorization is None or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuario no autenticado",
-        )
-    token = authorization.removeprefix("Bearer ").strip()
-    user_id = resolve_user_id(token)
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuario no autenticado",
-        )
-    return user_id
+@router.get("/tournaments/available", response_model=list[TournamentListResponse])
+def listar_torneos_disponibles(
+    db: Session = Depends(get_db),
+    _jugador_id: int = Depends(get_current_user),
+) -> list[TournamentListResponse]:
+    service = TournamentService(db)
+    return service.obtener_torneos_disponibles()
 
 
 @router.post("/tournaments", response_model=TournamentResponse, status_code=status.HTTP_201_CREATED)
 def crear_torneo(
     payload: TournamentCreate,
     db: Session = Depends(get_db),
-    creador_id: int = Depends(get_current_user_id),
+    creador_id: int = Depends(get_current_user),
 ) -> TournamentResponse:
     service = TournamentService(db)
     return service.crear_torneo(payload, creador_id)
+
+
+@router.post("/tournaments/register", response_model=RegistrationResponse, status_code=status.HTTP_201_CREATED)
+def inscribirse_en_torneo(
+    payload: RegistrationCreate,
+    db: Session = Depends(get_db),
+    jugador_id: int = Depends(get_current_user),
+) -> RegistrationResponse:
+    service = RegistrationService(db)
+    return service.registrar_inscripcion(payload, jugador_id)
