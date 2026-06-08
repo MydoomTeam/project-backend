@@ -8,6 +8,7 @@ class MatchResponse(BaseModel):
     torneo_id: int
     ronda: int
     posicion: int
+    bracket_tipo: str
     jugador1_id: int | None
     jugador2_id: int | None
     ganador_id: int | None

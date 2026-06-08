@@ -14,6 +14,7 @@ from app.services.registration_service import RegistrationService
 class DummyTournament:
     id: int = 9
     estado: str = "Pendiente"
+    creador_id: int = 99
 
 
 @dataclass
@@ -127,6 +128,19 @@ class TestRegistrationService(unittest.TestCase):
 
         self.assertEqual(context.exception.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(context.exception.detail, "El jugador ya está inscrito en este torneo")
+
+    def test_registro_rechaza_al_administrador_del_torneo(self):
+        fake_registration_repo = FakeRegistrationRepository(already_registered=False)
+        fake_tournament_repo = FakeTournamentRepository(DummyTournament(estado="Pendiente", creador_id=5))
+        registration_service_module.RegistrationRepository = lambda db: fake_registration_repo
+        registration_service_module.TournamentRepository = lambda db: fake_tournament_repo
+
+        service = RegistrationService(db=object())
+
+        with self.assertRaises(HTTPException) as context:
+            service.registrar_inscripcion(build_payload(), jugador_id=5)
+
+        self.assertEqual(context.exception.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_esquema_rechaza_torneo_id_no_valido(self):
         with self.assertRaises(ValidationError):

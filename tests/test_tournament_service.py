@@ -15,7 +15,7 @@ from app.services.tournament_service import TournamentService
 class DummyTournament:
     id: int = 10
     nombre: str = "Torneo Unitario"
-    tipo_eliminacion: str = "Doble Eliminación"
+    tipo_eliminacion: str = "Eliminación Doble"
     rondas: int = 5
     estado: str = "Pendiente"
     creador_id: int = 1
@@ -55,7 +55,7 @@ class FixedDateTime:
 
 def build_payload(
     nombre: str = "Torneo Unitario",
-    tipo_eliminacion: str = "Doble Eliminación",
+    tipo_eliminacion: str = "Eliminación Doble",
     rondas: int = 5,
 ) -> TournamentCreate:
     return TournamentCreate(
@@ -84,7 +84,7 @@ class TestCrearTorneo(unittest.TestCase):
 
         self.assertEqual(result.id, 10)
         self.assertEqual(result.nombre, "Torneo Unitario")
-        self.assertEqual(result.tipo_eliminacion, "Doble Eliminación")
+        self.assertEqual(result.tipo_eliminacion, "Eliminación Doble")
         self.assertEqual(result.rondas, 5)
         self.assertEqual(result.estado, "Pendiente")
         self.assertEqual(result.creador_id, 7)
@@ -107,7 +107,7 @@ class TestCrearTorneo(unittest.TestCase):
             )
 
         self.assertEqual(context.exception.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("El número de rondas", str(context.exception.detail))
+        self.assertIn("admite máximo", str(context.exception.detail))
 
     def test_crear_torneo_rechaza_nombre_duplicado(self):
         fake_repo = FakeTournamentRepository(existing_tournament=DummyTournament())

@@ -7,6 +7,20 @@ from app.models.tournament import TournamentModel
 from app.repositories.tournament_repository import TournamentRepository
 from app.schemas.tournament import TournamentCreate, TournamentDetailResponse
 
+_MAX_RONDAS_POR_FORMATO: dict[str, int] = {
+    "Eliminación Sencilla": 7,
+    "Eliminación Doble":    5,
+    "Round Robin":          3,
+    "Swiss":                7,
+}
+
+_MIN_PARTICIPANTES_POR_FORMATO: dict[str, int] = {
+    "Eliminación Sencilla": 2,
+    "Eliminación Doble":    4,
+    "Round Robin":          3,
+    "Swiss":                4,
+}
+
 
 class TournamentService:
     def __init__(self, db: Session):
@@ -35,10 +49,17 @@ class TournamentService:
         )
 
     def crear_torneo(self, data: TournamentCreate, creador_id: int) -> TournamentModel:
-        if data.tipo_eliminacion == "Eliminación Sencilla" and data.rondas > 7:
+        max_rondas = _MAX_RONDAS_POR_FORMATO.get(data.tipo_eliminacion)
+        if max_rondas is None:
+            formatos = list(_MAX_RONDAS_POR_FORMATO)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El número de rondas no es congruente con Eliminación Sencilla",
+                detail=f"Formato '{data.tipo_eliminacion}' no reconocido. Válidos: {formatos}",
+            )
+        if data.rondas > max_rondas:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"'{data.tipo_eliminacion}' admite máximo {max_rondas} rondas",
             )
 
         existente = self.repo.obtener_por_nombre_activo(data.nombre)
