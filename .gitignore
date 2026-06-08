@@ -14,3 +14,4 @@ htmlcov/
 .DS_Store
 Thumbs.db
 .vscode/
+linter_report.txt

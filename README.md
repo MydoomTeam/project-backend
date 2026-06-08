@@ -1,6 +1,6 @@
-# ArenaSync Backend (Hola Mundo)
+# ArenaSync Backend
 
-Backend monolitico con FastAPI + SQLAlchemy y PostgreSQL 16 en Docker. Incluye un flujo minimo para validar conexion a BD y crear una entidad.
+Backend monolitico con FastAPI + SQLAlchemy y PostgreSQL 16 en Docker. Implementa los casos de uso de administración de contraseñas, creación de torneos y alertas de eventos.
 
 ## Stack
 
@@ -90,9 +90,11 @@ uvicorn app.main:app --reload --app-dir src
 6) Probar endpoints
 
 - Docs: `http://localhost:8000/docs`
-- Hola Mundo (conexion BD): `GET /hola`
-- Crear jugador: `POST /api/jugadores`
-- Consultar jugador: `GET /api/jugadores/{id}`
+- Actualizar contraseña de administrador: `POST /api/admins/password`
+- Crear torneo: `POST /api/tournaments`
+- Obtener torneo: `GET /api/tournaments/{id}`
+- Listar alertas: `GET /api/alerts`
+- Reconocer alerta: `PATCH /api/alerts/{id}/ack`
 
 ## Flujo con automatizacion
 
@@ -120,20 +122,26 @@ uvicorn app.main:app --reload --app-dir src
 
 ## Prueba rapida (Postman o Thunder Client)
 
-POST `http://localhost:8000/api/jugadores`
+POST `http://localhost:8000/api/admins/password`
 
 ```json
 {
-  "id": 1,
-  "nombre_usuario": "demo",
-  "correo_electronico": "demo@demo.com",
-  "contrasena_hash": "hash",
-  "rol": "JUGADOR",
-  "fecha_ultimo_acceso": "2026-05-07",
-  "elo_global": 1200
+  "password": "Password123",
+  "password_confirm": "Password123"
 }
 ```
 
-Luego:
+POST `http://localhost:8000/api/tournaments`
 
-GET `http://localhost:8000/api/jugadores/1`
+```json
+{
+  "nombre": "Torneo Ejemplo",
+  "tipo_eliminacion": "simple",
+  "duracion_ronda_min": 30,
+  "participantes_max": 8
+}
+```
+
+GET `http://localhost:8000/api/tournaments/{id}`
+
+GET `http://localhost:8000/api/alerts`

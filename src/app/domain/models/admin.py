@@ -4,8 +4,8 @@ from sqlalchemy.schema import Identity
 from app.core.database import Base
 
 
-class Jugador(Base):
-    __tablename__ = "jugador"
+class Administrador(Base):
+    __tablename__ = "administrador"
 
     id = Column(Integer, Identity(), primary_key=True)
     nombre_usuario = Column(Text, nullable=False)
@@ -13,4 +13,3 @@ class Jugador(Base):
     contrasena_hash = Column(Text, nullable=False)
     rol = Column(Text, nullable=False)
     fecha_ultimo_acceso = Column(Date, nullable=False)
-    elo_global = Column(Integer, nullable=False)
