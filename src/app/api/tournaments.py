@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.schemas.registration import RegistrationCreate, RegistrationResponse
-from app.schemas.tournament import TournamentCreate, TournamentListResponse, TournamentResponse
+from app.schemas.tournament import BracketResponse, TournamentCreate, TournamentDetailResponse, TournamentListResponse, TournamentResponse
+from app.services.match_service import MatchService
 from app.services.registration_service import RegistrationService
 from app.services.tournament_service import TournamentService
 
@@ -38,3 +39,37 @@ def inscribirse_en_torneo(
 ) -> RegistrationResponse:
     service = RegistrationService(db)
     return service.registrar_inscripcion(payload, jugador_id)
+
+
+@router.get("/tournaments/{torneo_id}", response_model=TournamentDetailResponse)
+def obtener_detalle_torneo(
+    torneo_id: int,
+    db: Session = Depends(get_db),
+    _jugador_id: int = Depends(get_current_user),
+) -> TournamentDetailResponse:
+    service = TournamentService(db)
+    return service.obtener_detalle_torneo(torneo_id)
+
+
+@router.get("/tournaments/{torneo_id}/bracket", response_model=BracketResponse)
+def obtener_bracket(
+    torneo_id: int,
+    db: Session = Depends(get_db),
+    _jugador_id: int = Depends(get_current_user),
+) -> BracketResponse:
+    service = MatchService(db)
+    return service.obtener_bracket(torneo_id)
+
+
+@router.post(
+    "/tournaments/{torneo_id}/bracket",
+    response_model=BracketResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def generar_bracket(
+    torneo_id: int,
+    db: Session = Depends(get_db),
+    admin_id: int = Depends(get_current_user),
+) -> BracketResponse:
+    service = MatchService(db)
+    return service.generar_bracket(torneo_id, admin_id)

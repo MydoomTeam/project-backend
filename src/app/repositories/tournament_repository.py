@@ -1,9 +1,11 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.domain.models.jugador import Jugador
 from app.models.audit_log import AuditLogModel
+from app.models.registration import RegistrationModel
 from app.models.tournament import TournamentModel
 
 
@@ -25,6 +27,61 @@ class TournamentRepository:
     def listar_disponibles(self) -> list[TournamentModel]:
         stmt = select(TournamentModel).where(TournamentModel.estado == "Pendiente").order_by(TournamentModel.id.asc())
         return list(self.db.execute(stmt).scalars().all())
+
+    def obtener_detalle_con_creador(self, torneo_id: int) -> tuple[TournamentModel, str, int] | None:
+        stmt = (
+            select(TournamentModel, Jugador.nombre_usuario)
+            .join(Jugador, Jugador.id == TournamentModel.creador_id)
+            .where(TournamentModel.id == torneo_id)
+        )
+        row = self.db.execute(stmt).first()
+        if row is None:
+            return None
+        torneo, creador_nombre = row
+        count_stmt = (
+            select(func.count())
+            .select_from(RegistrationModel)
+            .where(
+                RegistrationModel.torneo_id == torneo_id,
+                RegistrationModel.estado == "Confirmado",
+            )
+        )
+        total = self.db.execute(count_stmt).scalar() or 0
+        return torneo, creador_nombre, total
+
+    def obtener_participantes_confirmados(self, torneo_id: int) -> list[tuple[int, int]]:
+        stmt = (
+            select(RegistrationModel.jugador_id, Jugador.elo_global)
+            .join(Jugador, Jugador.id == RegistrationModel.jugador_id)
+            .where(
+                RegistrationModel.torneo_id == torneo_id,
+                RegistrationModel.estado == "Confirmado",
+            )
+            .order_by(Jugador.elo_global.desc())
+        )
+        rows = self.db.execute(stmt).all()
+        return [(int(row.jugador_id), int(row.elo_global)) for row in rows]
+
+    def actualizar_estado_con_auditoria(
+        self,
+        torneo: TournamentModel,
+        nuevo_estado: str,
+        accion: str,
+        fecha: datetime,
+        usuario_id: int,
+    ) -> TournamentModel:
+        torneo.estado = nuevo_estado
+        self.db.flush()
+        self.db.add(
+            AuditLogModel(
+                accion=accion,
+                fecha=fecha,
+                usuario_id=usuario_id,
+            )
+        )
+        self.db.commit()
+        self.db.refresh(torneo)
+        return torneo
 
     def guardar_con_auditoria(
         self,
