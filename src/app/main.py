@@ -5,7 +5,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.controllers.admin_controller import router as admin_router
-from app.controllers.torneo_controller import router as torneo_router
 from app.controllers.alerta_controller import router as alerta_router
 from app.tasks.scheduler import start_scheduler
 from app.core.database import SessionLocal
@@ -36,7 +35,6 @@ from app.controllers.jugador_controller import router as jugador_router
 from app.models import audit_log, match, registration, tournament
 
 app = FastAPI(title="ArenaSync Backend", lifespan=lifespan)
-app = FastAPI(title="ArenaSync Backend")
 
 Base.metadata.create_all(bind=engine)
 
@@ -45,16 +43,15 @@ Base.metadata.create_all(bind=engine)
 async def request_validation_handler(_request, exc: RequestValidationError):
     details = [f"{error['loc'][-1]}: {error['msg']}" for error in exc.errors()]
     return JSONResponse(
-        status_code=400,
+        status_code=422,
         content={"detail": {"error": "validation_error", "details": details}},
     )
 
-app.include_router(admin_router, prefix="/api")
-app.include_router(torneo_router, prefix="/api")
-app.include_router(alerta_router, prefix="/api")
+app.include_router(admin_router)
+app.include_router(tournaments_router)
+app.include_router(alerta_router)
 app.include_router(health_router)
-app.include_router(jugador_router, prefix="/api")
-app.include_router(tournaments_router, prefix="/api")
+app.include_router(jugador_router)
 
 
 @app.get("/")

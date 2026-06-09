@@ -3,10 +3,11 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.core.database import get_db
-from app.schemas.match import ResultadoRequest, ResultadoResponse
+from app.schemas.match import MatchResponse, ResultadoRequest, ResultadoResponse
 from app.schemas.registration import RegistrationCreate, RegistrationResponse
 from app.schemas.tournament import (
     BracketResponse,
+    RankingResponse,
     TournamentCreate,
     TournamentDetailResponse,
     TournamentListResponse,
@@ -97,3 +98,40 @@ def registrar_resultado(
     admin_id: int = Depends(get_current_user),
 ) -> ResultadoResponse:
     return MatchService(db).registrar_resultado(torneo_id, match_id, payload.ganador_id, admin_id)
+
+
+@router.get("/tournaments/{torneo_id}/ranking", response_model=RankingResponse)
+def obtener_ranking(
+    torneo_id: int,
+    db: Session = Depends(get_db),
+    _jugador_id: int = Depends(get_current_user),
+) -> RankingResponse:
+    return MatchService(db).obtener_ranking(torneo_id)
+
+
+@router.get("/tournaments/{torneo_id}/jugadores/{jugador_id}/historial", response_model=list[MatchResponse])
+def obtener_historial_jugador(
+    torneo_id: int,
+    jugador_id: int,
+    db: Session = Depends(get_db),
+    _jugador_id: int = Depends(get_current_user),
+) -> list[MatchResponse]:
+    return MatchService(db).obtener_historial_jugador(torneo_id, jugador_id)
+
+
+@router.post("/tournaments/{torneo_id}/cancelar", status_code=status.HTTP_204_NO_CONTENT)
+def cancelar_torneo(
+    torneo_id: int,
+    db: Session = Depends(get_db),
+    admin_id: int = Depends(get_current_user),
+) -> None:
+    TournamentService(db).cancelar_torneo(torneo_id, admin_id)
+
+
+@router.delete("/tournaments/{torneo_id}/inscripcion", status_code=status.HTTP_204_NO_CONTENT)
+def cancelar_inscripcion(
+    torneo_id: int,
+    db: Session = Depends(get_db),
+    jugador_id: int = Depends(get_current_user),
+) -> None:
+    RegistrationService(db).cancelar_inscripcion(torneo_id, jugador_id)

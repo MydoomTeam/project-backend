@@ -1,10 +1,11 @@
 from datetime import datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.domain.models.jugador import Jugador
 from app.models.audit_log import AuditLogModel
+from app.models.match import MatchModel
 from app.models.registration import RegistrationModel
 from app.models.tournament import TournamentModel
 
@@ -82,6 +83,13 @@ class TournamentRepository:
         self.db.commit()
         self.db.refresh(torneo)
         return torneo
+
+    def eliminar(self, torneo: TournamentModel, accion: str, fecha: datetime, usuario_id: int) -> None:
+        self.db.execute(delete(MatchModel).where(MatchModel.torneo_id == torneo.id))
+        self.db.execute(delete(RegistrationModel).where(RegistrationModel.torneo_id == torneo.id))
+        self.db.delete(torneo)
+        self.db.add(AuditLogModel(accion=accion, fecha=fecha, usuario_id=usuario_id))
+        self.db.commit()
 
     def guardar_con_auditoria(
         self,

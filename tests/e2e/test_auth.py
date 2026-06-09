@@ -1,4 +1,4 @@
-﻿from dataclasses import dataclass
+from dataclasses import dataclass
 
 import pytest
 from fastapi import status
@@ -9,8 +9,8 @@ from app.services.jugador_service import JugadorService
 
 
 CLIENT = TestClient(app)
-REGISTER_URL = "/api/usuarios/registrar"
-LOGIN_URL = "/api/usuarios/login"
+REGISTER_URL = "/usuarios/registrar"
+LOGIN_URL = "/usuarios/login"
 
 
 @dataclass
@@ -106,9 +106,9 @@ def test_login_password_incorrecta(monkeypatch):
     [
         (REGISTER_URL, build_registration_payload(nombre_usuario="ab")),
         (REGISTER_URL, build_registration_payload(contrasena="123")),
-        (REGISTER_URL, build_registration_payload(nombre_usuario="alex\u00f1")),
+        (REGISTER_URL, build_registration_payload(nombre_usuario="alexñ")),
         (REGISTER_URL, build_registration_payload(contrasena="Pass\U0001f642123")),
-        (LOGIN_URL, {"identificador": "alex\u20ac", "contrasena": "Password123!"}),
+        (LOGIN_URL, {"identificador": "alex€", "contrasena": "Password123!"}),
         (LOGIN_URL, {"identificador": "alex123"}),
         (REGISTER_URL, {"correo_electronico": "alex@test.com", "contrasena": "Password123!"}),
     ],

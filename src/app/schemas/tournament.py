@@ -39,3 +39,17 @@ class TournamentDetailResponse(BaseModel):
     creador_id: int
     creador_nombre: str
     total_participantes: int
+
+
+class RankingEntry(BaseModel):
+    posicion: int
+    jugador_id: int
+    victorias: int
+    elo_global: int
+
+
+class RankingResponse(BaseModel):
+    torneo_id: int
+    tipo_eliminacion: str
+    estado: str
+    ranking: list[RankingEntry]

@@ -33,6 +33,9 @@ class FakeRegistrationRepository:
     def existe_inscripcion_activa(self, torneo_id: int, jugador_id: int) -> bool:
         return self.already_registered
 
+    def obtener_inscripcion(self, torneo_id: int, jugador_id: int):
+        return None
+
     def guardar(self, inscripcion: RegistrationModel) -> RegistrationModel:
         self.saved_registration = inscripcion
         return DummyRegistration(

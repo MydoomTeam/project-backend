@@ -23,6 +23,7 @@ database.SessionLocal = sessionmaker(
 
 from app.core.database import Base, get_db
 from app.controllers.admin_controller import get_current_admin_id
+from app.core.auth import get_current_user
 from app.domain.models.admin import Administrador  # noqa: F401
 from app.domain.models.alerta import Alerta  # noqa: F401
 from app.domain.models.enfrentamiento import Enfrentamiento  # noqa: F401
@@ -59,9 +60,10 @@ def client(db_session):
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_admin_id] = lambda: 1
+    app.dependency_overrides[get_current_user] = lambda: 1
 
     with patch("app.main.start_scheduler", MagicMock()):
-        with TestClient(app) as c:
+        with TestClient(app, raise_server_exceptions=False) as c:
             yield c
 
     app.dependency_overrides.clear()

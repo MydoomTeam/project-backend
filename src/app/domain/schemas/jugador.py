@@ -1,21 +1,11 @@
-from datetime import date
-from typing import Optional
-from pydantic import BaseModel, ConfigDict, Field, EmailStr
-from pydantic import Field
-from pydantic import field_validator
-
 import re
+from datetime import date
 
-VALID_PATTERN = r"^[A-Za-z0-9!@#$%^&*()_\-+=\[\]{};:'\",.<>/?\\|`~ ]+$"
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-class JugadorCreate(BaseModel):
-    id: int
-    nombre_usuario: str
-    correo_electronico: str
-    contrasena_hash: str
-    rol: str
-    fecha_ultimo_acceso: date
-    elo_global: int
+_PATRON_NOMBRE = r"^[A-Za-z0-9]+$"
+_PATRON_PASSWORD = r"^[A-Za-z0-9!@#$%^&*()\-_+=\[\]{};:.,<>/?]+$"
+_PATRON_IDENTIFICADOR = r"^[A-Za-z0-9!@#$%^&*()\-_+=\[\]{};:.,<>/?@]+$"
 
 
 class JugadorRead(BaseModel):
@@ -30,26 +20,47 @@ class JugadorRead(BaseModel):
 
 
 class UsuarioRegistro(BaseModel):
-    nombre_usuario:str = Field(min_length=3,max_length=30)
-    correo_electronico:EmailStr
-    contrasena:str = Field(min_length=8)
-    @field_validator("nombre_usuario","contrasena")
+    nombre_usuario: str = Field(min_length=3, max_length=30)
+    correo_electronico: EmailStr
+    contrasena: str = Field(min_length=8)
 
+    @field_validator("nombre_usuario")
     @classmethod
-    def validar_caracteres(cls,value):
-        if not re.match(VALID_PATTERN,value):
-            raise ValueError("Caracteres inválidos")
+    def validar_nombre(cls, value):
+        if not re.match(_PATRON_NOMBRE, value):
+            raise ValueError("El nombre de usuario solo permite letras y números")
         return value
-    
-class LoginRequest(BaseModel):
-    identificador:str
-    contrasena:str
-    @field_validator("identificador","contrasena")
 
+    @field_validator("contrasena")
     @classmethod
-    def validar(cls,value):
-        if not re.match(VALID_PATTERN,value):
-            raise ValueError("Caracteres inválidos")
+    def validar_contrasena(cls, value):
+        if not re.match(_PATRON_PASSWORD, value):
+            raise ValueError("La contraseña contiene caracteres no permitidos")
+        if not re.search(r"[A-Za-z]", value):
+            raise ValueError("La contraseña debe contener al menos una letra")
+        if not re.search(r"[0-9]", value):
+            raise ValueError("La contraseña debe contener al menos un número")
+        if not re.search(r"[!@#$%^&()\-_+=\[\]{};:.,<>/?]", value):
+            raise ValueError("La contraseña debe contener al menos un símbolo especial")
+        return value
+
+
+class LoginRequest(BaseModel):
+    identificador: str
+    contrasena: str
+
+    @field_validator("identificador")
+    @classmethod
+    def validar_identificador(cls, value):
+        if not re.match(_PATRON_IDENTIFICADOR, value):
+            raise ValueError("Caracteres inválidos en el identificador")
+        return value
+
+    @field_validator("contrasena")
+    @classmethod
+    def validar_contrasena_login(cls, value):
+        if not re.match(_PATRON_PASSWORD, value):
+            raise ValueError("Caracteres inválidos en la contraseña")
         return value
 
 

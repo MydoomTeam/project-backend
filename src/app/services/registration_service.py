@@ -32,9 +32,33 @@ class RegistrationService:
                 detail="El jugador ya está inscrito en este torneo",
             )
 
+        existente = self.registration_repo.obtener_inscripcion(data.torneo_id, jugador_id)
+        if existente is not None:
+            return self.registration_repo.reactivar(existente)
+
         inscripcion = RegistrationModel(
             torneo_id=data.torneo_id,
             jugador_id=jugador_id,
             estado="Confirmado",
         )
         return self.registration_repo.guardar(inscripcion)
+
+    def cancelar_inscripcion(self, torneo_id: int, jugador_id: int) -> None:
+        torneo = self.tournament_repo.obtener_por_id(torneo_id)
+        if torneo is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Torneo no encontrado",
+            )
+        if torneo.estado != "Pendiente":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Solo puedes desinscribirte de un torneo en estado Pendiente",
+            )
+        inscripcion = self.registration_repo.obtener_inscripcion_activa(torneo_id, jugador_id)
+        if inscripcion is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No estás inscrito en este torneo",
+            )
+        self.registration_repo.cancelar(inscripcion)

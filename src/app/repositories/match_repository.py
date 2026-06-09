@@ -1,4 +1,4 @@
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.match import MatchModel
@@ -63,6 +63,8 @@ class MatchRepository:
             .where(
                 MatchModel.torneo_id == torneo_id,
                 MatchModel.ronda == 1,
+                MatchModel.bracket_tipo == "ganadores",
+                MatchModel.jugador1_id.is_not(None),
                 MatchModel.jugador2_id.is_(None),
             )
             .order_by(MatchModel.posicion.asc())
@@ -100,7 +102,6 @@ class MatchRepository:
         return self.db.execute(stmt).scalar() or 0
 
     def obtener_victorias_por_jugador(self, torneo_id: int) -> dict[int, int]:
-        from sqlalchemy import case
         stmt = (
             select(MatchModel.ganador_id, func.count())
             .where(
@@ -111,6 +112,22 @@ class MatchRepository:
         )
         rows = self.db.execute(stmt).all()
         return {jugador_id: count for jugador_id, count in rows}
+
+    def obtener_historial_jugador(self, torneo_id: int, jugador_id: int) -> list[MatchModel]:
+        stmt = (
+            select(MatchModel)
+            .where(
+                MatchModel.torneo_id == torneo_id,
+                or_(
+                    MatchModel.jugador1_id == jugador_id,
+                    MatchModel.jugador2_id == jugador_id,
+                ),
+                MatchModel.jugador1_id.is_not(None),
+                MatchModel.jugador2_id.is_not(None),
+            )
+            .order_by(MatchModel.ronda.asc(), MatchModel.posicion.asc())
+        )
+        return list(self.db.execute(stmt).scalars().all())
 
     def obtener_pares_jugados(self, torneo_id: int) -> set[tuple[int, int]]:
         stmt = select(MatchModel.jugador1_id, MatchModel.jugador2_id).where(

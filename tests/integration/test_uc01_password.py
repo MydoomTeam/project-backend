@@ -25,7 +25,7 @@ def test_admin_password_valida(client, db_session):
     db_session.commit()
 
     response = client.post(
-        "/api/admins/password",
+        "/admins/password",
         json={"password": "Password123", "password_confirm": "Password123"},
     )
 
@@ -45,7 +45,7 @@ def test_admin_password_valida(client, db_session):
 
 def test_admin_password_y_confirmacion_diferentes(client, db_session):
     response = client.post(
-        "/api/admins/password",
+        "/admins/password",
         json={"password": "Password123", "password_confirm": "Different123"},
     )
 
@@ -55,14 +55,14 @@ def test_admin_password_y_confirmacion_diferentes(client, db_session):
 
 def test_admin_password_debil(client, db_session):
     response = client.post(
-        "/api/admins/password",
+        "/admins/password",
         json={"password": "Pwd1", "password_confirm": "Pwd1"},
     )
     assert response.status_code == 400
     assert response.json()["detail"]["details"]
 
     response = client.post(
-        "/api/admins/password",
+        "/admins/password",
         json={"password": "password123", "password_confirm": "password123"},
     )
     assert response.status_code == 400
@@ -74,7 +74,7 @@ def test_admin_no_existe(client, db_session):
     db_session.commit()
 
     response = client.post(
-        "/api/admins/password",
+        "/admins/password",
         json={"password": "Password123", "password_confirm": "Password123"},
     )
 
@@ -90,7 +90,7 @@ def test_admin_password_fallo_bd(client, db_session):
         AdminRepository, "update_password", side_effect=Exception("db error")
     ):
         response = client.post(
-            "/api/admins/password",
+            "/admins/password",
             json={"password": "Password123", "password_confirm": "Password123"},
         )
 

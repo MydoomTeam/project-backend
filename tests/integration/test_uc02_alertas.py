@@ -19,7 +19,7 @@ def test_get_alerts_muestra_alerta_creada(client, db_session):
     seed_overdue_enfrentamiento(db_session)
     check_overdue_events()
 
-    response = client.get("/api/alerts")
+    response = client.get("/alerts")
     assert response.status_code == 200
     data = response.json()
     assert "items" in data
@@ -50,8 +50,8 @@ def test_ack_alerta(client, db_session):
     seed_overdue_enfrentamiento(db_session)
     check_overdue_events()
 
-    alerta_id = client.get("/api/alerts").json()["items"][0]["id"]
-    response = client.patch(f"/api/alerts/{alerta_id}/ack")
+    alerta_id = client.get("/alerts").json()["items"][0]["id"]
+    response = client.patch(f"/alerts/{alerta_id}/ack")
 
     assert response.status_code == 200
     assert response.json() == {"message": "acknowledged"}

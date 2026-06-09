@@ -48,6 +48,30 @@ class TournamentService:
             total_participantes=total_participantes,
         )
 
+    def cancelar_torneo(self, torneo_id: int, admin_id: int) -> None:
+        torneo = self.repo.obtener_por_id(torneo_id)
+        if torneo is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Torneo no encontrado",
+            )
+        if torneo.creador_id != admin_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Solo el administrador puede cancelar el torneo",
+            )
+        if torneo.estado not in ("Pendiente", "Listo para iniciar"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Solo se puede cancelar un torneo en estado Pendiente o Listo para iniciar",
+            )
+        self.repo.eliminar(
+            torneo=torneo,
+            accion="CANCELAR_TORNEO",
+            fecha=datetime.now(),
+            usuario_id=admin_id,
+        )
+
     def crear_torneo(self, data: TournamentCreate, creador_id: int) -> TournamentModel:
         max_rondas = _MAX_RONDAS_POR_FORMATO.get(data.tipo_eliminacion)
         if max_rondas is None:

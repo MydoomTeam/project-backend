@@ -56,6 +56,3 @@ def get_current_user(authorization: str | None = Header(default=None, alias="Aut
             detail="Usuario no autenticado",
         )
     return user_id
-
-
-get_current_user_id = get_current_user

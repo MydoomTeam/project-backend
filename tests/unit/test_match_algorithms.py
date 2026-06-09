@@ -85,6 +85,13 @@ class TestConstruirEliminacionDoble(unittest.TestCase):
         ganadores = [m for m in matches if m.bracket_tipo == "ganadores"]
         self.assertEqual(len(ganadores), 3)
 
+    def test_cuatro_jugadores_bracket_perdedores_tiene_dos_matches(self):
+        participantes = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
+        matches = self._service()._construir_eliminacion_doble(1, participantes)
+
+        perdedores = [m for m in matches if m.bracket_tipo == "perdedores"]
+        self.assertEqual(len(perdedores), 2)
+
     def test_exactamente_un_match_gran_final(self):
         participantes = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
         matches = self._service()._construir_eliminacion_doble(1, participantes)
@@ -109,6 +116,18 @@ class TestConstruirEliminacionDoble(unittest.TestCase):
     def test_ruta_perdedor_primera_ronda_segunda_posicion(self):
         lb_ronda, lb_pos, lb_slot = MatchService._ruta_perdedor_a_perdedores(1, 1)
         self.assertEqual(lb_ronda, 1)
+        self.assertEqual(lb_pos, 0)
+        self.assertEqual(lb_slot, 1)
+
+    def test_ruta_perdedor_segunda_ronda_va_a_lb_ronda_dos(self):
+        lb_ronda, lb_pos, lb_slot = MatchService._ruta_perdedor_a_perdedores(2, 0)
+        self.assertEqual(lb_ronda, 2)
+        self.assertEqual(lb_pos, 0)
+        self.assertEqual(lb_slot, 1)
+
+    def test_ruta_perdedor_tercera_ronda_va_a_lb_ronda_cuatro(self):
+        lb_ronda, lb_pos, lb_slot = MatchService._ruta_perdedor_a_perdedores(3, 0)
+        self.assertEqual(lb_ronda, 4)
         self.assertEqual(lb_pos, 0)
         self.assertEqual(lb_slot, 1)
 

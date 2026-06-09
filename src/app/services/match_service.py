@@ -9,7 +9,7 @@ from app.repositories.jugador_repository import JugadorRepository
 from app.repositories.match_repository import MatchRepository
 from app.repositories.tournament_repository import TournamentRepository
 from app.schemas.match import MatchResponse, ResultadoResponse
-from app.schemas.tournament import BracketResponse
+from app.schemas.tournament import BracketResponse, RankingEntry, RankingResponse
 
 _ELO_ESCALA = 400
 _ELO_BASE = 10.0
@@ -44,6 +44,32 @@ class MatchService:
         self.torneo_repo  = TournamentRepository(db)
         self.match_repo   = MatchRepository(db)
         self.jugador_repo = JugadorRepository(db)
+
+    def obtener_ranking(self, torneo_id: int) -> RankingResponse:
+        torneo = self.torneo_repo.obtener_por_id(torneo_id)
+        if torneo is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Torneo no encontrado")
+
+        participantes = self.torneo_repo.obtener_participantes_confirmados(torneo_id)
+        victorias = self.match_repo.obtener_victorias_por_jugador(torneo_id)
+
+        entradas = sorted(
+            [{"jugador_id": jid, "victorias": victorias.get(jid, 0), "elo_global": elo} for jid, elo in participantes],
+            key=lambda e: (-e["victorias"], -e["elo_global"]),
+        )
+
+        ranking = [
+            RankingEntry(posicion=i + 1, jugador_id=e["jugador_id"], victorias=e["victorias"], elo_global=e["elo_global"])
+            for i, e in enumerate(entradas)
+        ]
+        return RankingResponse(torneo_id=torneo_id, tipo_eliminacion=torneo.tipo_eliminacion, estado=torneo.estado, ranking=ranking)
+
+    def obtener_historial_jugador(self, torneo_id: int, jugador_id: int) -> list[MatchResponse]:
+        torneo = self.torneo_repo.obtener_por_id(torneo_id)
+        if torneo is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Torneo no encontrado")
+        matches = self.match_repo.obtener_historial_jugador(torneo_id, jugador_id)
+        return [MatchResponse.model_validate(m) for m in matches]
 
     def obtener_bracket(self, torneo_id: int) -> BracketResponse:
         torneo = self.torneo_repo.obtener_por_id(torneo_id)
@@ -281,14 +307,22 @@ class MatchService:
                     sig_lb.estado = "En curso"
 
         elif match.bracket_tipo == _BRACKET_PERDEDORES:
+            lb_ronda_actual = match.ronda
+            if lb_ronda_actual % 2 == 1:
+                next_pos  = match.posicion
+                next_slot = 0
+            else:
+                next_pos  = match.posicion // 2
+                next_slot = match.posicion % 2
+
             sig_lb = self.match_repo.obtener_por_torneo_ronda_posicion_bracket(
                 torneo_id=torneo_id,
-                ronda=match.ronda + 1,
-                posicion=match.posicion // 2,
+                ronda=lb_ronda_actual + 1,
+                posicion=next_pos,
                 bracket_tipo=_BRACKET_PERDEDORES,
             )
             if sig_lb is not None:
-                if match.posicion % 2 == 0:
+                if next_slot == 0:
                     sig_lb.jugador1_id = ganador_id
                 else:
                     sig_lb.jugador2_id = ganador_id
@@ -310,10 +344,10 @@ class MatchService:
 
     @staticmethod
     def _ruta_perdedor_a_perdedores(wb_ronda: int, wb_posicion: int) -> tuple[int, int, int]:
-        lb_ronda = wb_ronda * 2 - 1
-        lb_pos   = wb_posicion // 2
-        lb_slot  = wb_posicion % 2
-        return lb_ronda, lb_pos, lb_slot
+        if wb_ronda == 1:
+            return 1, wb_posicion // 2, wb_posicion % 2
+        lb_ronda = (wb_ronda - 1) * 2
+        return lb_ronda, wb_posicion, 1
 
     @staticmethod
     def _factor_k(elo: int) -> int:
@@ -415,7 +449,8 @@ class MatchService:
                 ))
 
         for ronda in range(1, lb_rondas + 1):
-            matches_en_ronda = max(1, p // (2 ** ((ronda + 2) // 2)))
+            k = (ronda + 1) // 2
+            matches_en_ronda = p // (2 ** (k + 1))
             for pos in range(matches_en_ronda):
                 all_matches.append(MatchModel(
                     torneo_id=torneo_id, ronda=ronda, posicion=pos,

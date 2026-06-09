@@ -108,6 +108,9 @@ class FakeMatchRepository:
     def obtener_pares_jugados(self, _):
         return set()
 
+    def obtener_historial_jugador(self, _, __):
+        return []
+
 
 class FakeJugadorRepository:
     def __init__(self, jugadores: list[DummyJugador] | None = None):
