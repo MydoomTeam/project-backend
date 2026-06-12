@@ -73,7 +73,7 @@ class TestAlertaServiceValidation(unittest.TestCase):
         
         self.mock_audit_repo.log_action.assert_called_once()
         call_args = self.mock_audit_repo.log_action.call_args
-        self.assertEqual(call_args.kwargs["administrador_id"], admin_id)
+        self.assertEqual(call_args.kwargs["actor_id"], admin_id)
         self.assertEqual(call_args.kwargs["accion"], "ACK_ALERTA")
 
     def test_acknowledge_alerta_passes_alerta_to_repo(self):

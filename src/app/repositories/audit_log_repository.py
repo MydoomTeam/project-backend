@@ -11,7 +11,7 @@ class AuditLogRepository:
     `record` agrega el registro a la sesión activa SIN commit, para que el caller
     controle la frontera transaccional (flujos de torneos/partidas).
     `log_action` agrega y hace commit inmediato, para auditorías independientes de
-    una transacción mayor (admin, alertas, scheduler).
+    una transacción mayor (cambio de password, alertas, scheduler).
     """
 
     def __init__(self, db: Session):
@@ -35,13 +35,13 @@ class AuditLogRepository:
 
     def log_action(
         self,
-        administrador_id: int,
+        actor_id: int,
         accion: str,
         descripcion_cambio: str | None = None,
     ) -> None:
         self.record(
             accion=accion,
-            usuario_id=administrador_id,
+            usuario_id=actor_id,
             fecha=datetime.now(),
             descripcion_cambio=descripcion_cambio,
         )

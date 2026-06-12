@@ -1,16 +1,24 @@
 from dataclasses import dataclass
 from datetime import date
-import hashlib
 import logging
-import secrets
 
+import bcrypt
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.domain.models.jugador import Jugador
-from app.domain.schemas.jugador import LoginRequest, UsuarioRegistro
+from app.domain.schemas.jugador import LoginRequest, PasswordUpdate, UsuarioRegistro
+from app.repositories.audit_log_repository import AuditLogRepository
 from app.repositories.jugador_repository import JugadorRepository
 
 logger = logging.getLogger(__name__)
+
+_PASSWORD_RULES = [
+    (lambda password: len(password) >= 8, "La contraseña debe tener al menos 8 caracteres"),
+    (lambda password: any(char.isupper() for char in password), "La contraseña debe contener al menos una mayúscula"),
+    (lambda password: any(char.islower() for char in password), "La contraseña debe contener al menos una minúscula"),
+    (lambda password: any(char.isdigit() for char in password), "La contraseña debe contener al menos un número"),
+]
 
 
 @dataclass
@@ -29,14 +37,55 @@ class RegistrationOutcome:
 class JugadorService:
     def __init__(self, db: Session):
         self.repo = JugadorRepository(db)
+        self.audit_repo = AuditLogRepository(db)
 
     def obtener_jugador(self, jugador_id: int) -> Jugador | None:
         return self.repo.obtener_por_id(jugador_id)
 
+    def _validate_password(self, password: str) -> None:
+        for is_valid, message in _PASSWORD_RULES:
+            if not is_valid(password):
+                raise HTTPException(
+                    status_code=400,
+                    detail={"error": "validation_error", "details": [message]},
+                )
+
+    def cambiar_password(self, jugador_id: int, schema: PasswordUpdate):
+        if schema.password != schema.password_confirm:
+            raise HTTPException(
+                status_code=400,
+                detail={"error": "validation_error", "details": ["Las contraseñas no coinciden"]},
+            )
+
+        self._validate_password(schema.password)
+
+        jugador = self.repo.obtener_por_id(jugador_id)
+        if jugador is None:
+            raise HTTPException(status_code=404, detail="Jugador no encontrado")
+
+        password_hash = self._hash_password(schema.password)
+        try:
+            self.repo.update_password(jugador, password_hash)
+            self.audit_repo.log_action(
+                actor_id=jugador_id,
+                accion="UPDATE_PASSWORD",
+                descripcion_cambio="Jugador",
+            )
+        except Exception:
+            self.audit_repo.log_action(
+                actor_id=jugador_id,
+                accion="UPDATE_PASSWORD_FAILED",
+                descripcion_cambio="Jugador",
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Error al persistir en la base de datos",
+            )
+
+        return {"message": "password_updated"}
+
     def _hash_password(self, password: str) -> str:
-        salt = secrets.token_hex(16)
-        hashed = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100000)
-        return f"{salt}${hashed.hex()}"
+        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
 
     def registrar_usuario(self, data: UsuarioRegistro) -> RegistrationOutcome:
         duplicados = self.repo.obtener_duplicados(data.nombre_usuario, data.correo_electronico)
@@ -58,12 +107,15 @@ class JugadorService:
         logger.info(f"Usuario creado {creado.nombre_usuario}")
         return RegistrationOutcome(jugador=creado)
 
-    def _verificar_password(self, password: str, almacenado: str) -> bool:
-        salt, hash_guardado = almacenado.split("$")
-        nuevo_hash = hashlib.pbkdf2_hmac(
-            "sha256", password.encode(), salt.encode(), 100000
-        ).hex()
-        return nuevo_hash == hash_guardado
+    def _verificar_password(self, password: str, almacenado: str | None) -> bool:
+        # Verificación defensiva: hash vacío/None/no-bcrypt -> False, nunca lanza.
+        # (El jugador de sistema tiene contrasena_hash="" y no es autenticable.)
+        if not almacenado:
+            return False
+        try:
+            return bcrypt.checkpw(password.encode("utf-8"), almacenado.encode("utf-8"))
+        except (ValueError, TypeError):
+            return False
 
     def iniciar_sesion(self, data: LoginRequest):
         jugador = self.repo.obtener_por_login(data.identificador)

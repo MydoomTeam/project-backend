@@ -72,3 +72,9 @@ class JugadorRepository:
         self.db.commit()
         self.db.refresh(jugador)
         return jugador
+
+    def update_password(self, jugador: Jugador, password_hash: str) -> Jugador:
+        jugador.contrasena_hash = password_hash
+        self.db.commit()
+        self.db.refresh(jugador)
+        return jugador

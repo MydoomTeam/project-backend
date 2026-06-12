@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user
 from app.core.database import get_db
-from app.core.dependencies import get_current_admin_id
 from app.domain.schemas.alerta import AckResponse, AlertaListResponse
 from app.services.alerta_service import AlertaService
 
@@ -15,7 +15,7 @@ def get_alerta_service(db: Session = Depends(get_db)) -> AlertaService:
 
 @router.get("", response_model=AlertaListResponse)
 def get_alertas(
-    _admin_id: int = Depends(get_current_admin_id),
+    _jugador_id: int = Depends(get_current_user),
     service: AlertaService = Depends(get_alerta_service),
 ):
     return {"items": service.get_alertas()}
@@ -23,7 +23,7 @@ def get_alertas(
 @router.patch("/{id}/ack", response_model=AckResponse)
 def acknowledge_alerta(
     id: int,
-    admin_id: int = Depends(get_current_admin_id),
+    jugador_id: int = Depends(get_current_user),
     service: AlertaService = Depends(get_alerta_service)
 ):
-    return service.acknowledge_alerta(admin_id, id)
+    return service.acknowledge_alerta(jugador_id, id)

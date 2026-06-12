@@ -11,7 +11,6 @@ from app.core.config import settings
 from app.core.database import Base
 # Stack canónico inglés (registra tournaments, matches, registrations, audit_logs)
 from app.models import audit_log, match, registration, tournament  # noqa: F401
-from app.domain.models.admin import Administrador  # noqa: F401
 from app.domain.models.alerta import Alerta  # noqa: F401
 from app.domain.models.scheduled_match import ScheduledMatch  # noqa: F401
 from app.domain.models.historialelo import HistorialElo  # noqa: F401

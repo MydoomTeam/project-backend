@@ -34,9 +34,7 @@ database.SessionLocal = sessionmaker(
 )
 
 from app.core.database import Base, get_db
-from app.controllers.admin_controller import get_current_admin_id
 from app.core.auth import get_current_user
-from app.domain.models.admin import Administrador  # noqa: F401
 from app.domain.models.alerta import Alerta  # noqa: F401
 from app.domain.models.scheduled_match import ScheduledMatch  # noqa: F401
 from app.domain.models.historialelo import HistorialElo  # noqa: F401
@@ -44,7 +42,6 @@ from app.domain.models.jugador import Jugador  # noqa: F401
 from app.domain.constants import SYSTEM_ADMIN_ID
 from app.repositories.jugador_repository import JugadorRepository
 from app.main import app
-from tests.helpers import seed_admin
 
 TestingSessionLocal = database.SessionLocal
 
@@ -53,7 +50,6 @@ TestingSessionLocal = database.SessionLocal
 def db_session():
     Base.metadata.create_all(bind=test_engine)
     session = TestingSessionLocal()
-    seed_admin(session)
     # Actor de sistema (Jugador) para satisfacer audit_logs.usuario_id -> jugador.id,
     # equivalente a lo que hace el lifespan de la app en producción (ADR-005 5a).
     JugadorRepository(session).ensure_system_user(SYSTEM_ADMIN_ID)
@@ -72,7 +68,6 @@ def client(db_session):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_current_admin_id] = lambda: 1
     app.dependency_overrides[get_current_user] = lambda: 1
 
     with patch("app.main.start_scheduler", MagicMock()):

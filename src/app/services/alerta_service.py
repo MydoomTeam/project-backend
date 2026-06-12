@@ -18,14 +18,14 @@ class AlertaService:
     def get_alertas(self) -> list[AlertaResponse]:
         return [self._to_response(alerta) for alerta in self.alerta_repo.get_all()]
 
-    def acknowledge_alerta(self, admin_id: int, alerta_id: int):
+    def acknowledge_alerta(self, actor_id: int, alerta_id: int):
         alerta = self.alerta_repo.get_by_id(alerta_id)
         if not alerta:
             raise HTTPException(status_code=404, detail="Alerta no encontrada")
 
         self.alerta_repo.acknowledge(alerta)
         self.audit_repo.log_action(
-            administrador_id=admin_id,
+            actor_id=actor_id,
             accion="ACK_ALERTA",
             descripcion_cambio=f"Alerta:{alerta_id}",
         )

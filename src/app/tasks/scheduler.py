@@ -20,14 +20,14 @@ def _registrar_alerta_vencido(db, alerta_repo, audit_repo, match) -> None:
     try:
         alerta = alerta_repo.create(tipo="match_overdue", mensaje=mensaje)
         audit_repo.log_action(
-            administrador_id=SYSTEM_ADMIN_ID,
+            actor_id=SYSTEM_ADMIN_ID,
             accion="CREATE_ALERTA",
             descripcion_cambio=f"scheduler:Alerta:{alerta.id}",
         )
     except Exception as e:
         logger.error(f"Error registrando alerta para match {match.id}: {e}")
         audit_repo.log_action(
-            administrador_id=SYSTEM_ADMIN_ID,
+            actor_id=SYSTEM_ADMIN_ID,
             accion="CREATE_ALERTA_FAILED",
             descripcion_cambio=f"scheduler:Enfrentamiento:{match.id}",
         )
@@ -47,7 +47,7 @@ def check_overdue_events():
 
         if not overdue_matches:
             audit_repo.log_action(
-                administrador_id=SYSTEM_ADMIN_ID,
+                actor_id=SYSTEM_ADMIN_ID,
                 accion="CHECK_OVERDUE_OK",
                 descripcion_cambio="scheduler:Enfrentamiento",
             )

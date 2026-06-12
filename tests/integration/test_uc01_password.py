@@ -1,29 +1,20 @@
-from datetime import date
 from unittest.mock import patch
 
-from app.domain.models.admin import Administrador
+import pytest
+from fastapi import HTTPException
+
+from app.domain.models.jugador import Jugador
+from app.domain.schemas.jugador import PasswordUpdate
 from app.models.audit_log import AuditLogModel
-from app.repositories.admin_repository import AdminRepository
+from app.repositories.jugador_repository import JugadorRepository
+from app.services.jugador_service import JugadorService
 
 
-def _admin(**overrides) -> Administrador:
-    data = {
-        "id": 1,
-        "nombre_usuario": "admin_test",
-        "correo_electronico": "admin@test.com",
-        "contrasena_hash": "old_hash",
-        "rol": "administrador",
-        "fecha_ultimo_acceso": date.today(),
-    }
-    data.update(overrides)
-    return Administrador(**data)
+def _password_update(password="Password123", confirm="Password123") -> PasswordUpdate:
+    return PasswordUpdate(password=password, password_confirm=confirm)
 
 
 def test_admin_password_valida(client, db_session):
-    admin = db_session.query(Administrador).filter_by(id=1).first()
-    admin.contrasena_hash = "old_hash"
-    db_session.commit()
-
     response = client.post(
         "/admins/password",
         json={"password": "Password123", "password_confirm": "Password123"},
@@ -32,15 +23,15 @@ def test_admin_password_valida(client, db_session):
     assert response.status_code == 200
     assert response.json() == {"message": "password_updated"}
 
-    db_session.refresh(admin)
-    assert admin.contrasena_hash != "old_hash"
-    assert admin.contrasena_hash != "Password123"
-    assert (
+    # El actor proviene de get_current_user (jugador autenticado = 1), no del stub.
+    jugador = db_session.query(Jugador).filter_by(id=1).first()
+    assert jugador.contrasena_hash.startswith("$2")
+    audit = (
         db_session.query(AuditLogModel)
         .filter_by(accion="UPDATE_PASSWORD")
-        .count()
-        == 1
+        .one()
     )
+    assert audit.usuario_id == 1
 
 
 def test_admin_password_y_confirmacion_diferentes(client, db_session):
@@ -69,37 +60,26 @@ def test_admin_password_debil(client, db_session):
     assert response.json()["detail"]["details"]
 
 
-def test_admin_no_existe(client, db_session):
-    db_session.query(Administrador).delete()
-    db_session.commit()
-
-    response = client.post(
-        "/admins/password",
-        json={"password": "Password123", "password_confirm": "Password123"},
-    )
-
-    assert response.status_code == 404
-
-
 def test_admin_password_fallo_bd(client, db_session):
-    admin = db_session.query(Administrador).filter_by(id=1).first()
-    admin.contrasena_hash = "old_hash"
-    db_session.commit()
-
-    with patch.object(
-        AdminRepository, "update_password", side_effect=Exception("db error")
-    ):
+    with patch.object(JugadorRepository, "update_password", side_effect=Exception("db error")):
         response = client.post(
             "/admins/password",
             json={"password": "Password123", "password_confirm": "Password123"},
         )
 
     assert response.status_code == 500
-    db_session.refresh(admin)
-    assert admin.contrasena_hash == "old_hash"
     assert (
         db_session.query(AuditLogModel)
         .filter_by(accion="UPDATE_PASSWORD_FAILED")
         .count()
         == 1
     )
+
+
+def test_cambiar_password_actor_inexistente(db_session):
+    service = JugadorService(db_session)
+
+    with pytest.raises(HTTPException) as ctx:
+        service.cambiar_password(9999, _password_update())
+
+    assert ctx.value.status_code == 404

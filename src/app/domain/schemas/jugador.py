@@ -8,6 +8,11 @@ _PATRON_PASSWORD = r"^[A-Za-z0-9!@#$%^&*()\-_+=\[\]{};:.,<>/?]+$"
 _PATRON_IDENTIFICADOR = r"^[A-Za-z0-9!@#$%^&*()\-_+=\[\]{};:.,<>/?@]+$"
 
 
+class PasswordUpdate(BaseModel):
+    password: str
+    password_confirm: str
+
+
 class JugadorRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
