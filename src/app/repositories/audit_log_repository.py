@@ -6,14 +6,43 @@ from app.models.audit_log import AuditLogModel
 
 
 class AuditLogRepository:
-    """Único punto de escritura de la tabla audit_logs (stack de torneos).
+    """Único punto de escritura de la tabla audit_logs (fuente de verdad de auditoría).
 
-    No hace commit: agrega el registro a la sesión activa para que el caller
-    controle la frontera transaccional.
+    `record` agrega el registro a la sesión activa SIN commit, para que el caller
+    controle la frontera transaccional (flujos de torneos/partidas).
+    `log_action` agrega y hace commit inmediato, para auditorías independientes de
+    una transacción mayor (admin, alertas, scheduler).
     """
 
     def __init__(self, db: Session):
         self.db = db
 
-    def record(self, accion: str, usuario_id: int, fecha: datetime) -> None:
-        self.db.add(AuditLogModel(accion=accion, fecha=fecha, usuario_id=usuario_id))
+    def record(
+        self,
+        accion: str,
+        usuario_id: int,
+        fecha: datetime,
+        descripcion_cambio: str | None = None,
+    ) -> None:
+        self.db.add(
+            AuditLogModel(
+                accion=accion,
+                fecha=fecha,
+                usuario_id=usuario_id,
+                descripcion_cambio=descripcion_cambio,
+            )
+        )
+
+    def log_action(
+        self,
+        administrador_id: int,
+        accion: str,
+        descripcion_cambio: str | None = None,
+    ) -> None:
+        self.record(
+            accion=accion,
+            usuario_id=administrador_id,
+            fecha=datetime.now(),
+            descripcion_cambio=descripcion_cambio,
+        )
+        self.db.commit()

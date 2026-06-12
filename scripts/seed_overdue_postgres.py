@@ -5,7 +5,7 @@ from app.domain.models.torneo import Torneo
 from app.domain.models.ronda import Ronda
 from app.domain.models.jugador import Jugador
 from app.domain.models.inscripcion import Inscripcion
-from app.domain.models.enfrentamiento import Enfrentamiento
+from app.domain.models.scheduled_match import ScheduledMatch
 
 
 def _get_or_create_admin_for_seed(db, admin_id: int) -> Administrador:
@@ -90,9 +90,9 @@ def _register_players_in_tournament(db, tournament_id: int, player_one: Jugador,
     return registration_one, registration_two
 
 
-def _create_overdue_match(db, phase_id: int, registration_one_id: int, registration_two_id: int) -> Enfrentamiento:
+def _create_overdue_match(db, phase_id: int, registration_one_id: int, registration_two_id: int) -> ScheduledMatch:
     yesterday = date.today() - timedelta(days=1)
-    overdue_match = Enfrentamiento(
+    overdue_match = ScheduledMatch(
         ronda_id=phase_id,
         inscripcion_a_id=registration_one_id,
         inscripcion_b_id=registration_two_id,

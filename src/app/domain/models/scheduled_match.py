@@ -4,8 +4,8 @@ from sqlalchemy.schema import Identity
 from app.core.database import Base
 
 
-class Enfrentamiento(Base):
-    __tablename__ = "enfrentamiento"
+class ScheduledMatch(Base):
+    __tablename__ = "scheduled_matches"
 
     id = Column(Integer, Identity(), primary_key=True)
     ronda_id = Column(Integer, nullable=False)

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.domain.schemas.admin import AdminPasswordUpdate
 from app.repositories.admin_repository import AdminRepository
-from app.repositories.audit_repository import AuditRepository
+from app.repositories.audit_log_repository import AuditLogRepository
 
 _PASSWORD_RULES = [
     (lambda password: len(password) >= 8, "La contraseña debe tener al menos 8 caracteres"),
@@ -15,13 +15,13 @@ _PASSWORD_RULES = [
 
 
 class AdminService:
-    def __init__(self, admin_repo: AdminRepository, audit_repo: AuditRepository):
+    def __init__(self, admin_repo: AdminRepository, audit_repo: AuditLogRepository):
         self.admin_repo = admin_repo
         self.audit_repo = audit_repo
 
     @classmethod
     def from_session(cls, db: Session) -> "AdminService":
-        return cls(AdminRepository(db), AuditRepository(db))
+        return cls(AdminRepository(db), AuditLogRepository(db))
 
     def _validate_password(self, password: str):
         for is_valid, message in _PASSWORD_RULES:

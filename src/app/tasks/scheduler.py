@@ -6,9 +6,9 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.database import SessionLocal
 from app.domain.constants import SYSTEM_ADMIN_ID
-from app.domain.models.enfrentamiento import Enfrentamiento
+from app.domain.models.scheduled_match import ScheduledMatch
 from app.repositories.alerta_repository import AlertaRepository
-from app.repositories.audit_repository import AuditRepository
+from app.repositories.audit_log_repository import AuditLogRepository
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +41,11 @@ def check_overdue_events():
     db = SessionLocal()
     try:
         today = date.today()
-        audit_repo = AuditRepository(db)
+        audit_repo = AuditLogRepository(db)
 
-        overdue_matches = db.query(Enfrentamiento).filter(
-            Enfrentamiento.estado_match == "Pendiente",
-            Enfrentamiento.fecha_hora_programada <= today,
+        overdue_matches = db.query(ScheduledMatch).filter(
+            ScheduledMatch.estado_match == "Pendiente",
+            ScheduledMatch.fecha_hora_programada <= today,
         ).all()
 
         if not overdue_matches:

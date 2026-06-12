@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from app.domain.models.admin import Administrador
-from app.domain.models.enfrentamiento import Enfrentamiento
+from app.domain.models.scheduled_match import ScheduledMatch
 from app.domain.models.inscripcion import Inscripcion
 from app.domain.models.jugador import Jugador
 from app.domain.models.ronda import Ronda
@@ -48,7 +48,7 @@ def _inscripcion(inscripcion_id: int, jugador_id: int, today: date) -> Inscripci
     )
 
 
-def seed_overdue_enfrentamiento(session) -> Enfrentamiento:
+def seed_overdue_scheduled_match(session) -> ScheduledMatch:
     today = date.today()
     past = today - timedelta(days=1)
 
@@ -74,7 +74,7 @@ def seed_overdue_enfrentamiento(session) -> Enfrentamiento:
     session.add(_jugador(2, "jugador2", "j2@test.com", today))
     session.add(_inscripcion(1, 1, today))
     session.add(_inscripcion(2, 2, today))
-    enfrentamiento = Enfrentamiento(
+    scheduled_match = ScheduledMatch(
         id=1,
         ronda_id=1,
         inscripcion_a_id=1,
@@ -83,6 +83,6 @@ def seed_overdue_enfrentamiento(session) -> Enfrentamiento:
         marcador_detalle="0-0",
         fecha_hora_programada=past,
     )
-    session.add(enfrentamiento)
+    session.add(scheduled_match)
     session.commit()
-    return enfrentamiento
+    return scheduled_match

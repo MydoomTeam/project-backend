@@ -13,3 +13,4 @@ class AuditLogModel(Base):
     accion: Mapped[str] = mapped_column(Text, nullable=False)
     fecha: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     usuario_id: Mapped[int] = mapped_column(ForeignKey("jugador.id"), nullable=False)
+    descripcion_cambio: Mapped[str | None] = mapped_column(Text, nullable=True)

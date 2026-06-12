@@ -27,7 +27,7 @@ from app.controllers.admin_controller import get_current_admin_id
 from app.core.auth import get_current_user
 from app.domain.models.admin import Administrador  # noqa: F401
 from app.domain.models.alerta import Alerta  # noqa: F401
-from app.domain.models.enfrentamiento import Enfrentamiento  # noqa: F401
+from app.domain.models.scheduled_match import ScheduledMatch  # noqa: F401
 from app.domain.models.historialelo import HistorialElo  # noqa: F401
 from app.domain.models.inscripcion import Inscripcion  # noqa: F401
 from app.domain.models.jugador import Jugador  # noqa: F401

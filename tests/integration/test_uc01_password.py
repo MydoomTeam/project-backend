@@ -2,7 +2,7 @@ from datetime import date
 from unittest.mock import patch
 
 from app.domain.models.admin import Administrador
-from app.domain.models.log_auditoria import LogAuditoria
+from app.models.audit_log import AuditLogModel
 from app.repositories.admin_repository import AdminRepository
 
 
@@ -36,7 +36,7 @@ def test_admin_password_valida(client, db_session):
     assert admin.contrasena_hash != "old_hash"
     assert admin.contrasena_hash != "Password123"
     assert (
-        db_session.query(LogAuditoria)
+        db_session.query(AuditLogModel)
         .filter_by(accion="UPDATE_PASSWORD")
         .count()
         == 1
@@ -98,7 +98,7 @@ def test_admin_password_fallo_bd(client, db_session):
     db_session.refresh(admin)
     assert admin.contrasena_hash == "old_hash"
     assert (
-        db_session.query(LogAuditoria)
+        db_session.query(AuditLogModel)
         .filter_by(accion="UPDATE_PASSWORD_FAILED")
         .count()
         == 1
