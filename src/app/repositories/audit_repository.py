@@ -18,7 +18,7 @@ class AuditRepository:
         log = LogAuditoria(
             administrador_id=administrador_id,
             accion=accion,
-            timestamp=date.today(),
+            fecha=date.today(),
             descripcion_cambio=descripcion_cambio,
         )
         self.db.add(log)

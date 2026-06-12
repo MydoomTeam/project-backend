@@ -10,5 +10,5 @@ class LogAuditoria(Base):
     id = Column(Integer, Identity(), primary_key=True)
     administrador_id = Column(Integer, nullable=False)
     accion = Column(Text, nullable=False)
-    timestamp = Column("TIMESTAMP", Date, nullable=False)
+    fecha = Column("TIMESTAMP", Date, nullable=False)
     descripcion_cambio = Column(Text, nullable=True)

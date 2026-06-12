@@ -6,6 +6,13 @@ from app.domain.schemas.admin import AdminPasswordUpdate
 from app.repositories.admin_repository import AdminRepository
 from app.repositories.audit_repository import AuditRepository
 
+_PASSWORD_RULES = [
+    (lambda password: len(password) >= 8, "La contraseña debe tener al menos 8 caracteres"),
+    (lambda password: any(char.isupper() for char in password), "La contraseña debe contener al menos una mayúscula"),
+    (lambda password: any(char.islower() for char in password), "La contraseña debe contener al menos una minúscula"),
+    (lambda password: any(char.isdigit() for char in password), "La contraseña debe contener al menos un número"),
+]
+
 
 class AdminService:
     def __init__(self, admin_repo: AdminRepository, audit_repo: AuditRepository):
@@ -17,38 +24,12 @@ class AdminService:
         return cls(AdminRepository(db), AuditRepository(db))
 
     def _validate_password(self, password: str):
-        if len(password) < 8:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": "validation_error",
-                    "details": ["La contraseña debe tener al menos 8 caracteres"],
-                },
-            )
-        if not any(char.isupper() for char in password):
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": "validation_error",
-                    "details": ["La contraseña debe contener al menos una mayúscula"],
-                },
-            )
-        if not any(char.islower() for char in password):
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": "validation_error",
-                    "details": ["La contraseña debe contener al menos una minúscula"],
-                },
-            )
-        if not any(char.isdigit() for char in password):
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": "validation_error",
-                    "details": ["La contraseña debe contener al menos un número"],
-                },
-            )
+        for is_valid, message in _PASSWORD_RULES:
+            if not is_valid(password):
+                raise HTTPException(
+                    status_code=400,
+                    detail={"error": "validation_error", "details": [message]},
+                )
 
     def update_password(self, admin_id: int, schema: AdminPasswordUpdate):
         if schema.password != schema.password_confirm:

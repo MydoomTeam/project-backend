@@ -12,6 +12,30 @@ from app.repositories.audit_repository import AuditRepository
 
 logger = logging.getLogger(__name__)
 
+_INTERVALO_REVISION_SEGUNDOS = 30
+
+
+def _registrar_alerta_vencido(db, alerta_repo, audit_repo, match) -> None:
+    mensaje = (
+        f"Enfrentamiento {match.id} del torneo asociado a ronda "
+        f"{match.ronda_id} vencido."
+    )
+    try:
+        alerta = alerta_repo.create(tipo="match_overdue", mensaje=mensaje)
+        audit_repo.log_action(
+            administrador_id=SYSTEM_ADMIN_ID,
+            accion="CREATE_ALERTA",
+            descripcion_cambio=f"scheduler:Alerta:{alerta.id}",
+        )
+    except Exception as e:
+        logger.error(f"Error registrando alerta para match {match.id}: {e}")
+        audit_repo.log_action(
+            administrador_id=SYSTEM_ADMIN_ID,
+            accion="CREATE_ALERTA_FAILED",
+            descripcion_cambio=f"scheduler:Enfrentamiento:{match.id}",
+        )
+        db.rollback()
+
 
 def check_overdue_events():
     db = SessionLocal()
@@ -33,30 +57,8 @@ def check_overdue_events():
             return
 
         alerta_repo = AlertaRepository(db)
-
         for match in overdue_matches:
-            mensaje = (
-                f"Enfrentamiento {match.id} del torneo asociado a ronda "
-                f"{match.ronda_id} vencido."
-            )
-            try:
-                alerta = alerta_repo.create(
-                    tipo="match_overdue",
-                    mensaje=mensaje,
-                )
-                audit_repo.log_action(
-                    administrador_id=SYSTEM_ADMIN_ID,
-                    accion="CREATE_ALERTA",
-                    descripcion_cambio=f"scheduler:Alerta:{alerta.id}",
-                )
-            except Exception as e:
-                logger.error(f"Error registrando alerta para match {match.id}: {e}")
-                audit_repo.log_action(
-                    administrador_id=SYSTEM_ADMIN_ID,
-                    accion="CREATE_ALERTA_FAILED",
-                    descripcion_cambio=f"scheduler:Enfrentamiento:{match.id}",
-                )
-                db.rollback()
+            _registrar_alerta_vencido(db, alerta_repo, audit_repo, match)
 
     except Exception as e:
         logger.error(f"Scheduler error at check_overdue_events: {e}")
@@ -68,10 +70,10 @@ def start_scheduler():
     scheduler = BackgroundScheduler()
     scheduler.add_job(
         check_overdue_events,
-        trigger=IntervalTrigger(seconds=30),
+        trigger=IntervalTrigger(seconds=_INTERVALO_REVISION_SEGUNDOS),
         id="check_overdue_events_job",
         name="Revisar eventos vencidos para alertas",
         replace_existing=True,
     )
     scheduler.start()
-    logger.info("Scheduler iniciado. Revisando eventos cada 30 segundos.")
+    logger.info(f"Scheduler iniciado. Revisando eventos cada {_INTERVALO_REVISION_SEGUNDOS} segundos.")

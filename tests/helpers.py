@@ -26,6 +26,28 @@ def seed_admin(session, admin_id: int = 1) -> Administrador:
     return admin
 
 
+def _jugador(jugador_id: int, nombre: str, correo: str, today: date) -> Jugador:
+    return Jugador(
+        id=jugador_id,
+        nombre_usuario=nombre,
+        correo_electronico=correo,
+        contrasena_hash="hash",
+        rol="jugador",
+        fecha_ultimo_acceso=today,
+        elo_global=1000,
+    )
+
+
+def _inscripcion(inscripcion_id: int, jugador_id: int, today: date) -> Inscripcion:
+    return Inscripcion(
+        id=inscripcion_id,
+        torneo_id=1,
+        jugador_id=jugador_id,
+        estado_participante="Activo",
+        fecha_inscripcion=today,
+    )
+
+
 def seed_overdue_enfrentamiento(session) -> Enfrentamiento:
     today = date.today()
     past = today - timedelta(days=1)
@@ -48,46 +70,10 @@ def seed_overdue_enfrentamiento(session) -> Enfrentamiento:
         )
     )
     session.add(Ronda(id=1, torneo_id=1, numero_fase=1))
-    session.add(
-        Jugador(
-            id=1,
-            nombre_usuario="jugador1",
-            correo_electronico="j1@test.com",
-            contrasena_hash="hash",
-            rol="jugador",
-            fecha_ultimo_acceso=today,
-            elo_global=1000,
-        )
-    )
-    session.add(
-        Jugador(
-            id=2,
-            nombre_usuario="jugador2",
-            correo_electronico="j2@test.com",
-            contrasena_hash="hash",
-            rol="jugador",
-            fecha_ultimo_acceso=today,
-            elo_global=1000,
-        )
-    )
-    session.add(
-        Inscripcion(
-            id=1,
-            torneo_id=1,
-            jugador_id=1,
-            estado_participante="Activo",
-            fecha_inscripcion=today,
-        )
-    )
-    session.add(
-        Inscripcion(
-            id=2,
-            torneo_id=1,
-            jugador_id=2,
-            estado_participante="Activo",
-            fecha_inscripcion=today,
-        )
-    )
+    session.add(_jugador(1, "jugador1", "j1@test.com", today))
+    session.add(_jugador(2, "jugador2", "j2@test.com", today))
+    session.add(_inscripcion(1, 1, today))
+    session.add(_inscripcion(2, 2, today))
     enfrentamiento = Enfrentamiento(
         id=1,
         ronda_id=1,

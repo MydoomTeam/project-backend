@@ -77,7 +77,11 @@ def generar_bracket(
     return MatchService(db).generar_bracket(torneo_id, admin_id)
 
 
-@router.post("/tournaments/{torneo_id}/iniciar", response_model=BracketResponse)
+@router.post(
+    "/tournaments/{torneo_id}/iniciar",
+    response_model=BracketResponse,
+    status_code=status.HTTP_200_OK,
+)
 def iniciar_torneo(
     torneo_id: int,
     db: Session = Depends(get_db),
@@ -89,6 +93,7 @@ def iniciar_torneo(
 @router.post(
     "/tournaments/{torneo_id}/matches/{match_id}/resultado",
     response_model=ResultadoResponse,
+    status_code=status.HTTP_200_OK,
 )
 def registrar_resultado(
     torneo_id: int,

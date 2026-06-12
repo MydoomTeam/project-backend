@@ -1,6 +1,7 @@
 import os
 
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+_TEST_DATABASE_URL = "sqlite:///:memory:"
+os.environ["DATABASE_URL"] = _TEST_DATABASE_URL
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import app.core.database as database
 
 test_engine = create_engine(
-    "sqlite:///:memory:",
+    _TEST_DATABASE_URL,
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )

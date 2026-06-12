@@ -4,12 +4,16 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.api.tournaments import router as tournaments_router
 from app.controllers.admin_controller import router as admin_router
 from app.controllers.alerta_controller import router as alerta_router
-from app.tasks.scheduler import start_scheduler
-from app.core.database import SessionLocal
-from app.repositories.admin_repository import AdminRepository
+from app.controllers.health_controller import router as health_router
+from app.controllers.jugador_controller import router as jugador_router
+from app.core.database import Base, SessionLocal, engine
 from app.domain.constants import SYSTEM_ADMIN_ID
+from app.models import audit_log, match, registration, tournament  # noqa: F401  (registra las tablas)
+from app.repositories.admin_repository import AdminRepository
+from app.tasks.scheduler import start_scheduler
 
 
 def _initialize_system_admin_for_audit_logs() -> None:
@@ -27,12 +31,6 @@ async def lifespan(app: FastAPI):
     start_scheduler()
     yield
 
-
-from app.api.tournaments import router as tournaments_router
-from app.core.database import Base, engine
-from app.controllers.health_controller import router as health_router
-from app.controllers.jugador_controller import router as jugador_router
-from app.models import audit_log, match, registration, tournament
 
 app = FastAPI(title="ArenaSync Backend", lifespan=lifespan)
 
