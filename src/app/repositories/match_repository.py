@@ -8,6 +8,15 @@ class MatchRepository:
     def __init__(self, db: Session):
         self.db = db
 
+    def flush(self) -> None:
+        self.db.flush()
+
+    def commit(self) -> None:
+        self.db.commit()
+
+    def refresh(self, entity: MatchModel) -> None:
+        self.db.refresh(entity)
+
     def insertar_en_lote(self, matches: list[MatchModel]) -> list[MatchModel]:
         self.db.add_all(matches)
         self.db.flush()

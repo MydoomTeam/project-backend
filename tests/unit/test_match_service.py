@@ -73,6 +73,15 @@ class FakeMatchRepository:
         self._siguiente = siguiente
         self.inserted: list = []
 
+    def flush(self):
+        pass
+
+    def commit(self):
+        pass
+
+    def refresh(self, _):
+        pass
+
     def insertar_en_lote(self, matches):
         for i, m in enumerate(matches):
             m.id = i + 1
