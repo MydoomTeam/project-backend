@@ -12,21 +12,24 @@ from app.controllers.jugador_controller import router as jugador_router
 from app.core.database import SessionLocal
 from app.domain.constants import SYSTEM_ADMIN_ID
 from app.repositories.admin_repository import AdminRepository
+from app.repositories.jugador_repository import JugadorRepository
 from app.tasks.scheduler import start_scheduler
 
 
-def _initialize_system_admin_for_audit_logs() -> None:
+def _initialize_system_actor_for_audit_logs() -> None:
     db = SessionLocal()
     try:
-        admin_repo = AdminRepository(db)
-        admin_repo.ensure_system_admin(SYSTEM_ADMIN_ID)
+        # Actor de sistema (Jugador): satisface audit_logs.usuario_id -> jugador.id (ADR-005, 5a).
+        JugadorRepository(db).ensure_system_user(SYSTEM_ADMIN_ID)
+        # Administrador de sistema legado (UC-01); se unifica/elimina en 5c-5d.
+        AdminRepository(db).ensure_system_admin(SYSTEM_ADMIN_ID)
     finally:
         db.close()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    _initialize_system_admin_for_audit_logs()
+    _initialize_system_actor_for_audit_logs()
     start_scheduler()
     yield
 

@@ -20,6 +20,28 @@ class JugadorRepository:
         stmt = select(Jugador).where(Jugador.id == jugador_id)
         return self.db.execute(stmt).scalars().first()
 
+    def ensure_system_user(self, jugador_id: int) -> Jugador:
+        """Garantiza un Jugador de sistema con id fijo, actor de los eventos
+        automáticos (scheduler). Satisface la FK audit_logs.usuario_id -> jugador.id.
+        """
+        existente = self.obtener_por_id(jugador_id)
+        if existente is not None:
+            return existente
+
+        jugador = Jugador(
+            id=jugador_id,
+            nombre_usuario="system",
+            correo_electronico="system@localhost",
+            contrasena_hash="",
+            rol="JUGADOR",
+            fecha_ultimo_acceso=date.today(),
+            elo_global=0,
+        )
+        self.db.add(jugador)
+        self.db.commit()
+        self.db.refresh(jugador)
+        return jugador
+
     def siguiente_id(self) -> int:
         stmt = select(Jugador).order_by(Jugador.id.desc())
         ultimo = self.db.execute(stmt).scalars().first()

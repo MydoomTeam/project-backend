@@ -5,7 +5,7 @@ os.environ["DATABASE_URL"] = _TEST_DATABASE_URL
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from unittest.mock import MagicMock, patch
@@ -17,6 +17,17 @@ test_engine = create_engine(
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
+
+
+@event.listens_for(test_engine, "connect")
+def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+    # SQLite no enforza FKs por defecto; las activamos para detectar
+    # violaciones que de otro modo quedarían ocultas (ADR-006).
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
 database.engine = test_engine
 database.SessionLocal = sessionmaker(
     autocommit=False, autoflush=False, bind=test_engine
@@ -30,6 +41,8 @@ from app.domain.models.alerta import Alerta  # noqa: F401
 from app.domain.models.scheduled_match import ScheduledMatch  # noqa: F401
 from app.domain.models.historialelo import HistorialElo  # noqa: F401
 from app.domain.models.jugador import Jugador  # noqa: F401
+from app.domain.constants import SYSTEM_ADMIN_ID
+from app.repositories.jugador_repository import JugadorRepository
 from app.main import app
 from tests.helpers import seed_admin
 
@@ -41,6 +54,9 @@ def db_session():
     Base.metadata.create_all(bind=test_engine)
     session = TestingSessionLocal()
     seed_admin(session)
+    # Actor de sistema (Jugador) para satisfacer audit_logs.usuario_id -> jugador.id,
+    # equivalente a lo que hace el lifespan de la app en producción (ADR-005 5a).
+    JugadorRepository(session).ensure_system_user(SYSTEM_ADMIN_ID)
     session.commit()
     yield session
     session.close()
