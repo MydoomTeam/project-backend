@@ -29,11 +29,7 @@ from app.domain.models.admin import Administrador  # noqa: F401
 from app.domain.models.alerta import Alerta  # noqa: F401
 from app.domain.models.scheduled_match import ScheduledMatch  # noqa: F401
 from app.domain.models.historialelo import HistorialElo  # noqa: F401
-from app.domain.models.inscripcion import Inscripcion  # noqa: F401
 from app.domain.models.jugador import Jugador  # noqa: F401
-from app.domain.models.log_auditoria import LogAuditoria  # noqa: F401
-from app.domain.models.ronda import Ronda  # noqa: F401
-from app.domain.models.torneo import Torneo  # noqa: F401
 from app.main import app
 from tests.helpers import seed_admin
 

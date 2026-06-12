@@ -9,9 +9,8 @@ from app.controllers.admin_controller import router as admin_router
 from app.controllers.alerta_controller import router as alerta_router
 from app.controllers.health_controller import router as health_router
 from app.controllers.jugador_controller import router as jugador_router
-from app.core.database import Base, SessionLocal, engine
+from app.core.database import SessionLocal
 from app.domain.constants import SYSTEM_ADMIN_ID
-from app.models import audit_log, match, registration, tournament  # noqa: F401  (registra las tablas)
 from app.repositories.admin_repository import AdminRepository
 from app.tasks.scheduler import start_scheduler
 
@@ -34,7 +33,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="ArenaSync Backend", lifespan=lifespan)
 
-Base.metadata.create_all(bind=engine)
+# El esquema lo gestiona Alembic (única fuente de verdad). Ejecutar `alembic upgrade head`.
 
 
 @app.exception_handler(RequestValidationError)

@@ -16,10 +16,7 @@ _INTERVALO_REVISION_SEGUNDOS = 30
 
 
 def _registrar_alerta_vencido(db, alerta_repo, audit_repo, match) -> None:
-    mensaje = (
-        f"Enfrentamiento {match.id} del torneo asociado a ronda "
-        f"{match.ronda_id} vencido."
-    )
+    mensaje = f"Enfrentamiento {match.id} vencido."
     try:
         alerta = alerta_repo.create(tipo="match_overdue", mensaje=mensaje)
         audit_repo.log_action(

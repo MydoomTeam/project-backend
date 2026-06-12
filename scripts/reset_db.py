@@ -1,16 +1,21 @@
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import MetaData
-from app.core.database import Base, engine
-from app.models import audit_log, match, registration, tournament  # noqa: F401
-from app.domain.models import jugador  # noqa: F401
 
-todas_las_tablas = MetaData()
-todas_las_tablas.reflect(bind=engine)
-todas_las_tablas.drop_all(bind=engine)
+from app.core.database import engine
 
-Base.metadata.create_all(bind=engine)
-print("Base de datos reiniciada correctamente.")
+# Esquema gestionado por Alembic (única fuente de verdad).
+# Se elimina todo el esquema existente (incluida alembic_version) y se reconstruye
+# aplicando el baseline canónico con `alembic upgrade head`.
+_existing = MetaData()
+_existing.reflect(bind=engine)
+_existing.drop_all(bind=engine)
+
+_repo_root = os.path.join(os.path.dirname(__file__), "..")
+command.upgrade(Config(os.path.join(_repo_root, "alembic.ini")), "head")
+print("Base de datos reiniciada vía Alembic (alembic upgrade head).")
