@@ -25,18 +25,12 @@ class FakeTournamentRepository:
     def __init__(self, existing_tournament: TournamentModel | None = None):
         self.existing_tournament = existing_tournament
         self.saved_tournament = None
-        self.saved_action = None
-        self.saved_date = None
-        self.saved_user_id = None
 
     def obtener_por_nombre_activo(self, nombre: str):
         return self.existing_tournament
 
-    def guardar_con_auditoria(self, torneo, accion, fecha, usuario_id):
+    def guardar(self, torneo):
         self.saved_tournament = torneo
-        self.saved_action = accion
-        self.saved_date = fecha
-        self.saved_user_id = usuario_id
         return DummyTournament(
             id=10,
             nombre=torneo.nombre,
@@ -45,6 +39,18 @@ class FakeTournamentRepository:
             estado=torneo.estado,
             creador_id=torneo.creador_id,
         )
+
+
+class FakeAuditLogRepository:
+    def __init__(self):
+        self.recorded_action = None
+        self.recorded_date = None
+        self.recorded_user_id = None
+
+    def record(self, accion, usuario_id, fecha):
+        self.recorded_action = accion
+        self.recorded_user_id = usuario_id
+        self.recorded_date = fecha
 
 
 class FixedDateTime:
@@ -68,15 +74,19 @@ def build_payload(
 class TestCrearTorneo(unittest.TestCase):
     def setUp(self):
         self.original_repository = tournament_service_module.TournamentRepository
+        self.original_audit_repository = tournament_service_module.AuditLogRepository
         self.original_datetime = tournament_service_module.datetime
 
     def tearDown(self):
         tournament_service_module.TournamentRepository = self.original_repository
+        tournament_service_module.AuditLogRepository = self.original_audit_repository
         tournament_service_module.datetime = self.original_datetime
 
     def test_crear_torneo_exitoso_persiste_estado_pendiente_y_auditoria(self):
         fake_repo = FakeTournamentRepository()
+        fake_audit = FakeAuditLogRepository()
         tournament_service_module.TournamentRepository = lambda db: fake_repo
+        tournament_service_module.AuditLogRepository = lambda db: fake_audit
         tournament_service_module.datetime = FixedDateTime
 
         service = TournamentService(db=object())
@@ -90,13 +100,14 @@ class TestCrearTorneo(unittest.TestCase):
         self.assertEqual(result.creador_id, 7)
         self.assertIsNotNone(fake_repo.saved_tournament)
         self.assertEqual(fake_repo.saved_tournament.estado, "Pendiente")
-        self.assertEqual(fake_repo.saved_action, "CREAR_TORNEO")
-        self.assertEqual(fake_repo.saved_date, datetime(2026, 6, 7, 12, 0, 0))
-        self.assertEqual(fake_repo.saved_user_id, 7)
+        self.assertEqual(fake_audit.recorded_action, "CREAR_TORNEO")
+        self.assertEqual(fake_audit.recorded_date, datetime(2026, 6, 7, 12, 0, 0))
+        self.assertEqual(fake_audit.recorded_user_id, 7)
 
     def test_crear_torneo_rechaza_eliminacion_sencilla_con_rondas_excesivas(self):
         fake_repo = FakeTournamentRepository()
         tournament_service_module.TournamentRepository = lambda db: fake_repo
+        tournament_service_module.AuditLogRepository = lambda db: FakeAuditLogRepository()
 
         service = TournamentService(db=object())
 
@@ -112,6 +123,7 @@ class TestCrearTorneo(unittest.TestCase):
     def test_crear_torneo_rechaza_nombre_duplicado(self):
         fake_repo = FakeTournamentRepository(existing_tournament=DummyTournament())
         tournament_service_module.TournamentRepository = lambda db: fake_repo
+        tournament_service_module.AuditLogRepository = lambda db: FakeAuditLogRepository()
 
         service = TournamentService(db=object())
 

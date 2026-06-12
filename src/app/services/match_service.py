@@ -3,8 +3,8 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.audit_log import AuditLogModel
 from app.models.match import MatchModel
+from app.repositories.audit_log_repository import AuditLogRepository
 from app.repositories.jugador_repository import JugadorRepository
 from app.repositories.match_repository import MatchRepository
 from app.repositories.tournament_repository import TournamentRepository
@@ -44,6 +44,7 @@ class MatchService:
         self.torneo_repo  = TournamentRepository(db)
         self.match_repo   = MatchRepository(db)
         self.jugador_repo = JugadorRepository(db)
+        self.audit_repo   = AuditLogRepository(db)
 
     def obtener_ranking(self, torneo_id: int) -> RankingResponse:
         torneo = self.torneo_repo.obtener_por_id(torneo_id)
@@ -122,13 +123,8 @@ class MatchService:
         match_models = self.match_repo.insertar_en_lote(match_models)
         match_responses = [MatchResponse.model_validate(m) for m in match_models]
 
-        torneo = self.torneo_repo.actualizar_estado_con_auditoria(
-            torneo=torneo,
-            nuevo_estado="Listo para iniciar",
-            accion="GENERAR_BRACKET",
-            fecha=datetime.now(),
-            usuario_id=admin_id,
-        )
+        self.audit_repo.record(accion="GENERAR_BRACKET", usuario_id=admin_id, fecha=datetime.now())
+        torneo = self.torneo_repo.actualizar_estado(torneo, "Listo para iniciar")
         return BracketResponse(torneo_id=torneo_id, estado_torneo=torneo.estado, matches=match_responses)
 
     def iniciar_torneo(self, torneo_id: int, admin_id: int) -> BracketResponse:
@@ -159,7 +155,7 @@ class MatchService:
                 m.estado = "En curso"
 
         torneo.estado = "En curso"
-        self.db.add(AuditLogModel(accion="INICIAR_TORNEO", fecha=datetime.now(), usuario_id=admin_id))
+        self.audit_repo.record(accion="INICIAR_TORNEO", usuario_id=admin_id, fecha=datetime.now())
         self.db.flush()
         self.db.commit()
         self.db.refresh(torneo)
@@ -236,10 +232,10 @@ class MatchService:
             self.db.flush()
             torneo_finalizado = self.match_repo.contar_activos_por_torneo(torneo_id) == 0
 
-        self.db.add(AuditLogModel(accion="REGISTRAR_RESULTADO", fecha=datetime.now(), usuario_id=admin_id))
+        self.audit_repo.record(accion="REGISTRAR_RESULTADO", usuario_id=admin_id, fecha=datetime.now())
         if torneo_finalizado:
             torneo.estado = "Finalizado"
-            self.db.add(AuditLogModel(accion="FINALIZAR_TORNEO", fecha=datetime.now(), usuario_id=admin_id))
+            self.audit_repo.record(accion="FINALIZAR_TORNEO", usuario_id=admin_id, fecha=datetime.now())
 
         self.db.flush()
         self.db.commit()

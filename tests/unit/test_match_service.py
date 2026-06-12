@@ -47,8 +47,6 @@ class FakeTournamentRepository:
     def __init__(self, torneo=None, participantes=None):
         self.torneo = torneo
         self.participantes = participantes or []
-        self.auditoria_accion = None
-        self.auditoria_usuario = None
 
     def obtener_por_id(self, _):
         return self.torneo
@@ -56,11 +54,17 @@ class FakeTournamentRepository:
     def obtener_participantes_confirmados(self, _):
         return self.participantes
 
-    def actualizar_estado_con_auditoria(self, torneo, nuevo_estado, accion, fecha, usuario_id):
-        self.auditoria_accion = accion
-        self.auditoria_usuario = usuario_id
+    def actualizar_estado(self, torneo, nuevo_estado):
         torneo.estado = nuevo_estado
         return torneo
+
+
+class FakeAuditLogRepository:
+    def __init__(self):
+        self.actions: list[str] = []
+
+    def record(self, accion, usuario_id, fecha):
+        self.actions.append(accion)
 
 
 class FakeMatchRepository:
@@ -125,16 +129,20 @@ class TestGenerarBracket(unittest.TestCase):
         self.original_torneo_repo = match_service_module.TournamentRepository
         self.original_match_repo = match_service_module.MatchRepository
         self.original_jugador_repo = match_service_module.JugadorRepository
+        self.original_audit_repo = match_service_module.AuditLogRepository
+        self.fake_audit = FakeAuditLogRepository()
 
     def tearDown(self):
         match_service_module.TournamentRepository = self.original_torneo_repo
         match_service_module.MatchRepository = self.original_match_repo
         match_service_module.JugadorRepository = self.original_jugador_repo
+        match_service_module.AuditLogRepository = self.original_audit_repo
 
     def _inyectar(self, torneo_repo, match_repo=None):
         match_service_module.TournamentRepository = lambda db: torneo_repo
         match_service_module.MatchRepository = lambda db: match_repo or FakeMatchRepository()
         match_service_module.JugadorRepository = lambda db: FakeJugadorRepository()
+        match_service_module.AuditLogRepository = lambda db: self.fake_audit
 
     def test_lanza_404_si_torneo_no_existe(self):
         self._inyectar(FakeTournamentRepository(torneo=None))
@@ -165,7 +173,7 @@ class TestGenerarBracket(unittest.TestCase):
 
         self.assertEqual(result.estado_torneo, "Listo para iniciar")
         self.assertEqual({m.ronda for m in result.matches}, {1, 2})
-        self.assertEqual(torneo_repo.auditoria_accion, "GENERAR_BRACKET")
+        self.assertIn("GENERAR_BRACKET", self.fake_audit.actions)
 
 
 class TestRegistrarResultado(unittest.TestCase):

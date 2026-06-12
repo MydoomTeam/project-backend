@@ -5,7 +5,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services.jugador_service import JugadorService
+from app.services.jugador_service import JugadorService, RegistrationOutcome
 
 
 CLIENT = TestClient(app)
@@ -52,7 +52,7 @@ def login(payload: dict):
 
 def test_registro_exitoso(monkeypatch):
     def fake_registrar_usuario(self, payload):
-        return DummyJugador()
+        return RegistrationOutcome(jugador=DummyJugador())
 
     monkeypatch.setattr(JugadorService, "registrar_usuario", fake_registrar_usuario)
 
@@ -70,7 +70,10 @@ def test_registro_exitoso(monkeypatch):
 )
 def test_registro_duplicado(monkeypatch, payload, duplicated_user, duplicated_email):
     def fake_registrar_usuario(self, payload):
-        return {"duplicados": {"usuario": duplicated_user, "correo": duplicated_email}}
+        return RegistrationOutcome(
+            duplicate_username=duplicated_user,
+            duplicate_email=duplicated_email,
+        )
 
     monkeypatch.setattr(JugadorService, "registrar_usuario", fake_registrar_usuario)
 

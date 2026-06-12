@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
 from app.domain.schemas.alerta import AlertaResponse
 from app.repositories.alerta_repository import AlertaRepository
@@ -9,6 +10,10 @@ class AlertaService:
     def __init__(self, alerta_repo: AlertaRepository, audit_repo: AuditRepository):
         self.alerta_repo = alerta_repo
         self.audit_repo = audit_repo
+
+    @classmethod
+    def from_session(cls, db: Session) -> "AlertaService":
+        return cls(AlertaRepository(db), AuditRepository(db))
 
     def get_alertas(self) -> list[AlertaResponse]:
         return [self._to_response(alerta) for alerta in self.alerta_repo.get_all()]

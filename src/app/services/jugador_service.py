@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import date
 import hashlib
 import logging
@@ -12,6 +13,19 @@ from app.repositories.jugador_repository import JugadorRepository
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class RegistrationOutcome:
+    """Resultado explícito del registro: jugador creado o conflicto de duplicados."""
+
+    jugador: Jugador | None = None
+    duplicate_username: bool = False
+    duplicate_email: bool = False
+
+    @property
+    def is_duplicate(self) -> bool:
+        return self.duplicate_username or self.duplicate_email
+
+
 class JugadorService:
     def __init__(self, db: Session):
         self.repo = JugadorRepository(db)
@@ -24,10 +38,13 @@ class JugadorService:
         hashed = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100000)
         return f"{salt}${hashed.hex()}"
 
-    def registrar_usuario(self, data: UsuarioRegistro):
+    def registrar_usuario(self, data: UsuarioRegistro) -> RegistrationOutcome:
         duplicados = self.repo.obtener_duplicados(data.nombre_usuario, data.correo_electronico)
         if duplicados["usuario"] or duplicados["correo"]:
-            return {"duplicados": duplicados}
+            return RegistrationOutcome(
+                duplicate_username=duplicados["usuario"],
+                duplicate_email=duplicados["correo"],
+            )
         jugador = Jugador(
             id=self.repo.siguiente_id(),
             nombre_usuario=data.nombre_usuario,
@@ -39,7 +56,7 @@ class JugadorService:
         )
         creado = self.repo.crear(jugador)
         logger.info(f"Usuario creado {creado.nombre_usuario}")
-        return creado
+        return RegistrationOutcome(jugador=creado)
 
     def _verificar_password(self, password: str, almacenado: str) -> bool:
         salt, hash_guardado = almacenado.split("$")

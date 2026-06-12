@@ -1,5 +1,6 @@
 import bcrypt
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
 from app.domain.schemas.admin import AdminPasswordUpdate
 from app.repositories.admin_repository import AdminRepository
@@ -10,6 +11,10 @@ class AdminService:
     def __init__(self, admin_repo: AdminRepository, audit_repo: AuditRepository):
         self.admin_repo = admin_repo
         self.audit_repo = audit_repo
+
+    @classmethod
+    def from_session(cls, db: Session) -> "AdminService":
+        return cls(AdminRepository(db), AuditRepository(db))
 
     def _validate_password(self, password: str):
         if len(password) < 8:

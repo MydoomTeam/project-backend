@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.tournament import TournamentModel
+from app.repositories.audit_log_repository import AuditLogRepository
 from app.repositories.tournament_repository import TournamentRepository
 from app.schemas.tournament import TournamentCreate, TournamentDetailResponse
 
@@ -14,17 +15,11 @@ _MAX_RONDAS_POR_FORMATO: dict[str, int] = {
     "Swiss":                7,
 }
 
-_MIN_PARTICIPANTES_POR_FORMATO: dict[str, int] = {
-    "Eliminación Sencilla": 2,
-    "Eliminación Doble":    4,
-    "Round Robin":          3,
-    "Swiss":                4,
-}
-
 
 class TournamentService:
     def __init__(self, db: Session):
         self.repo = TournamentRepository(db)
+        self.audit_repo = AuditLogRepository(db)
 
     def obtener_torneos_disponibles(self) -> list[TournamentModel]:
         return self.repo.listar_disponibles()
@@ -65,12 +60,8 @@ class TournamentService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Solo se puede cancelar un torneo en estado Pendiente o Listo para iniciar",
             )
-        self.repo.eliminar(
-            torneo=torneo,
-            accion="CANCELAR_TORNEO",
-            fecha=datetime.now(),
-            usuario_id=admin_id,
-        )
+        self.audit_repo.record(accion="CANCELAR_TORNEO", usuario_id=admin_id, fecha=datetime.now())
+        self.repo.eliminar(torneo)
 
     def crear_torneo(self, data: TournamentCreate, creador_id: int) -> TournamentModel:
         max_rondas = _MAX_RONDAS_POR_FORMATO.get(data.tipo_eliminacion)
@@ -100,9 +91,5 @@ class TournamentService:
             estado="Pendiente",
             creador_id=creador_id,
         )
-        return self.repo.guardar_con_auditoria(
-            torneo=torneo,
-            accion="CREAR_TORNEO",
-            fecha=datetime.now(),
-            usuario_id=creador_id,
-        )
+        self.audit_repo.record(accion="CREAR_TORNEO", usuario_id=creador_id, fecha=datetime.now())
+        return self.repo.guardar(torneo)

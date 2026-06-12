@@ -19,16 +19,15 @@ def obtener_jugador(jugador_id: int, db: Session = Depends(get_db)):
 
 @router.post("/usuarios/registrar", response_model=JugadorRead, status_code=status.HTTP_201_CREATED)
 def registrar_usuario(payload: UsuarioRegistro, db: Session = Depends(get_db)):
-    resultado = JugadorService(db).registrar_usuario(payload)
-    if isinstance(resultado, dict):
-        duplicados = resultado["duplicados"]
+    outcome = JugadorService(db).registrar_usuario(payload)
+    if outcome.is_duplicate:
         errores = []
-        if duplicados["usuario"]:
+        if outcome.duplicate_username:
             errores.append("nombre de usuario ya registrado")
-        if duplicados["correo"]:
+        if outcome.duplicate_email:
             errores.append("correo electrónico ya registrado")
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=errores)
-    return resultado
+    return outcome.jugador
 
 
 @router.post("/usuarios/login", response_model=LoginResponse)

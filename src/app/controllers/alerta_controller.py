@@ -4,17 +4,13 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.dependencies import get_current_admin_id
 from app.domain.schemas.alerta import AckResponse, AlertaListResponse
-from app.repositories.alerta_repository import AlertaRepository
-from app.repositories.audit_repository import AuditRepository
 from app.services.alerta_service import AlertaService
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 
 def get_alerta_service(db: Session = Depends(get_db)) -> AlertaService:
-    alerta_repo = AlertaRepository(db)
-    audit_repo = AuditRepository(db)
-    return AlertaService(alerta_repo, audit_repo)
+    return AlertaService.from_session(db)
 
 
 @router.get("", response_model=AlertaListResponse)

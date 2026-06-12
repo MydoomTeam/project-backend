@@ -1,10 +1,7 @@
-from datetime import datetime
-
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.domain.models.jugador import Jugador
-from app.models.audit_log import AuditLogModel
 from app.models.match import MatchModel
 from app.models.registration import RegistrationModel
 from app.models.tournament import TournamentModel
@@ -63,50 +60,22 @@ class TournamentRepository:
         rows = self.db.execute(stmt).all()
         return [(int(row.jugador_id), int(row.elo_global)) for row in rows]
 
-    def actualizar_estado_con_auditoria(
-        self,
-        torneo: TournamentModel,
-        nuevo_estado: str,
-        accion: str,
-        fecha: datetime,
-        usuario_id: int,
-    ) -> TournamentModel:
+    def actualizar_estado(self, torneo: TournamentModel, nuevo_estado: str) -> TournamentModel:
         torneo.estado = nuevo_estado
         self.db.flush()
-        self.db.add(
-            AuditLogModel(
-                accion=accion,
-                fecha=fecha,
-                usuario_id=usuario_id,
-            )
-        )
         self.db.commit()
         self.db.refresh(torneo)
         return torneo
 
-    def eliminar(self, torneo: TournamentModel, accion: str, fecha: datetime, usuario_id: int) -> None:
+    def eliminar(self, torneo: TournamentModel) -> None:
         self.db.execute(delete(MatchModel).where(MatchModel.torneo_id == torneo.id))
         self.db.execute(delete(RegistrationModel).where(RegistrationModel.torneo_id == torneo.id))
         self.db.delete(torneo)
-        self.db.add(AuditLogModel(accion=accion, fecha=fecha, usuario_id=usuario_id))
         self.db.commit()
 
-    def guardar_con_auditoria(
-        self,
-        torneo: TournamentModel,
-        accion: str,
-        fecha: datetime,
-        usuario_id: int,
-    ) -> TournamentModel:
+    def guardar(self, torneo: TournamentModel) -> TournamentModel:
         self.db.add(torneo)
         self.db.flush()
-        self.db.add(
-            AuditLogModel(
-                accion=accion,
-                fecha=fecha,
-                usuario_id=usuario_id,
-            )
-        )
         self.db.commit()
         self.db.refresh(torneo)
         return torneo

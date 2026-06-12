@@ -83,7 +83,7 @@ def test_crear_torneo_tipo_eliminacion_invalido(client):
 
 
 def test_crear_torneo_fallo_bd(client):
-    with patch.object(TournamentRepository, "guardar_con_auditoria", side_effect=Exception("db error")):
+    with patch.object(TournamentRepository, "guardar", side_effect=Exception("db error")):
         response = client.post("/tournaments", json=_torneo_payload())
 
     assert response.status_code == 500
