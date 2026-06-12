@@ -61,23 +61,23 @@ class TestJugadorCambiarPassword(unittest.TestCase):
     def test_cambiar_password_mismatch_confirmation(self):
         schema = _update("ValidPass123!", confirm="DifferentPass123!")
         with self.assertRaises(HTTPException) as ctx:
-            self.service.cambiar_password(1, schema)
+            self.service.change_password(1, schema)
         self.assertEqual(ctx.exception.status_code, 400)
         self.assertIn("no coinciden", str(ctx.exception.detail))
 
     def test_cambiar_password_actor_inexistente(self):
-        self.service.repo.obtener_por_id.return_value = None
+        self.service.repo.get_by_id.return_value = None
         with self.assertRaises(HTTPException) as ctx:
-            self.service.cambiar_password(9999, _update("ValidPass123!"))
+            self.service.change_password(9999, _update("ValidPass123!"))
         self.assertEqual(ctx.exception.status_code, 404)
         self.assertIn("no encontrado", str(ctx.exception.detail))
 
     def test_cambiar_password_success(self):
         jugador = Mock()
         jugador.id = 1
-        self.service.repo.obtener_por_id.return_value = jugador
+        self.service.repo.get_by_id.return_value = jugador
 
-        result = self.service.cambiar_password(1, _update("ValidPass123!"))
+        result = self.service.change_password(1, _update("ValidPass123!"))
 
         self.assertEqual(result["message"], "password_updated")
         self.service.repo.update_password.assert_called_once()
@@ -89,11 +89,11 @@ class TestJugadorCambiarPassword(unittest.TestCase):
     def test_cambiar_password_persistence_failure(self):
         jugador = Mock()
         jugador.id = 1
-        self.service.repo.obtener_por_id.return_value = jugador
+        self.service.repo.get_by_id.return_value = jugador
         self.service.repo.update_password.side_effect = Exception("DB Error")
 
         with self.assertRaises(HTTPException) as ctx:
-            self.service.cambiar_password(1, _update("ValidPass123!"))
+            self.service.change_password(1, _update("ValidPass123!"))
 
         self.assertEqual(ctx.exception.status_code, 500)
         self.assertIn("base de datos", str(ctx.exception.detail))

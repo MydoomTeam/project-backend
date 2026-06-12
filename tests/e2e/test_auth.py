@@ -54,7 +54,7 @@ def test_registro_exitoso(monkeypatch):
     def fake_registrar_usuario(self, payload):
         return RegistrationOutcome(jugador=DummyJugador())
 
-    monkeypatch.setattr(JugadorService, "registrar_usuario", fake_registrar_usuario)
+    monkeypatch.setattr(JugadorService, "register_user", fake_registrar_usuario)
 
     response = register(build_registration_payload())
 
@@ -75,7 +75,7 @@ def test_registro_duplicado(monkeypatch, payload, duplicated_user, duplicated_em
             duplicate_email=duplicated_email,
         )
 
-    monkeypatch.setattr(JugadorService, "registrar_usuario", fake_registrar_usuario)
+    monkeypatch.setattr(JugadorService, "register_user", fake_registrar_usuario)
 
     response = register(payload)
 
@@ -86,7 +86,7 @@ def test_login_exitoso(monkeypatch):
     def fake_iniciar_sesion(self, payload):
         return DummyJugador()
 
-    monkeypatch.setattr(JugadorService, "iniciar_sesion", fake_iniciar_sesion)
+    monkeypatch.setattr(JugadorService, "login", fake_iniciar_sesion)
 
     response = login(build_login_payload())
 
@@ -97,7 +97,7 @@ def test_login_password_incorrecta(monkeypatch):
     def fake_iniciar_sesion(self, payload):
         return None
 
-    monkeypatch.setattr(JugadorService, "iniciar_sesion", fake_iniciar_sesion)
+    monkeypatch.setattr(JugadorService, "login", fake_iniciar_sesion)
 
     response = login(build_login_payload(contrasena="incorrecta"))
 

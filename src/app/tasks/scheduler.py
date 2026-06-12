@@ -12,7 +12,7 @@ from app.repositories.audit_log_repository import AuditLogRepository
 
 logger = logging.getLogger(__name__)
 
-_INTERVALO_REVISION_SEGUNDOS = 30
+_CHECK_INTERVAL_SECONDS = 30
 
 
 def _registrar_alerta_vencido(db, alerta_repo, audit_repo, match) -> None:
@@ -67,10 +67,10 @@ def start_scheduler():
     scheduler = BackgroundScheduler()
     scheduler.add_job(
         check_overdue_events,
-        trigger=IntervalTrigger(seconds=_INTERVALO_REVISION_SEGUNDOS),
+        trigger=IntervalTrigger(seconds=_CHECK_INTERVAL_SECONDS),
         id="check_overdue_events_job",
         name="Revisar eventos vencidos para alertas",
         replace_existing=True,
     )
     scheduler.start()
-    logger.info(f"Scheduler iniciado. Revisando eventos cada {_INTERVALO_REVISION_SEGUNDOS} segundos.")
+    logger.info(f"Scheduler iniciado. Revisando eventos cada {_CHECK_INTERVAL_SECONDS} segundos.")

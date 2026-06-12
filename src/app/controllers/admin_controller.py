@@ -15,4 +15,4 @@ def update_admin_password(
     jugador_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return JugadorService(db).cambiar_password(jugador_id, data)
+    return JugadorService(db).change_password(jugador_id, data)

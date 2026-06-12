@@ -80,6 +80,6 @@ def test_cambiar_password_actor_inexistente(db_session):
     service = JugadorService(db_session)
 
     with pytest.raises(HTTPException) as ctx:
-        service.cambiar_password(9999, _password_update())
+        service.change_password(9999, _password_update())
 
     assert ctx.value.status_code == 404

@@ -30,13 +30,13 @@ class FakeRegistrationRepository:
         self.already_registered = already_registered
         self.saved_registration = None
 
-    def existe_inscripcion_activa(self, torneo_id: int, jugador_id: int) -> bool:
+    def active_registration_exists(self, torneo_id: int, jugador_id: int) -> bool:
         return self.already_registered
 
-    def obtener_inscripcion(self, torneo_id: int, jugador_id: int):
+    def get_registration(self, torneo_id: int, jugador_id: int):
         return None
 
-    def guardar(self, inscripcion: RegistrationModel) -> RegistrationModel:
+    def save(self, inscripcion: RegistrationModel) -> RegistrationModel:
         self.saved_registration = inscripcion
         return DummyRegistration(
             id=1,
@@ -50,7 +50,7 @@ class FakeTournamentRepository:
     def __init__(self, tournament: DummyTournament | None):
         self.tournament = tournament
 
-    def obtener_por_id(self, torneo_id: int):
+    def get_by_id(self, torneo_id: int):
         return self.tournament
 
 
@@ -74,7 +74,7 @@ class TestRegistrationService(unittest.TestCase):
         registration_service_module.TournamentRepository = lambda db: fake_tournament_repo
 
         service = RegistrationService(db=object())
-        result = service.registrar_inscripcion(build_payload(), jugador_id=5)
+        result = service.register(build_payload(), jugador_id=5)
 
         self.assertEqual(result.id, 1)
         self.assertEqual(result.torneo_id, 9)
@@ -93,7 +93,7 @@ class TestRegistrationService(unittest.TestCase):
         service = RegistrationService(db=object())
 
         with self.assertRaises(HTTPException) as context:
-            service.registrar_inscripcion(build_payload(), jugador_id=5)
+            service.register(build_payload(), jugador_id=5)
 
         self.assertEqual(context.exception.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(
@@ -110,7 +110,7 @@ class TestRegistrationService(unittest.TestCase):
         service = RegistrationService(db=object())
 
         with self.assertRaises(HTTPException) as context:
-            service.registrar_inscripcion(build_payload(), jugador_id=5)
+            service.register(build_payload(), jugador_id=5)
 
         self.assertEqual(context.exception.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(
@@ -127,7 +127,7 @@ class TestRegistrationService(unittest.TestCase):
         service = RegistrationService(db=object())
 
         with self.assertRaises(HTTPException) as context:
-            service.registrar_inscripcion(build_payload(), jugador_id=5)
+            service.register(build_payload(), jugador_id=5)
 
         self.assertEqual(context.exception.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(context.exception.detail, "El jugador ya está inscrito en este torneo")
@@ -141,7 +141,7 @@ class TestRegistrationService(unittest.TestCase):
         service = RegistrationService(db=object())
 
         with self.assertRaises(HTTPException) as context:
-            service.registrar_inscripcion(build_payload(), jugador_id=5)
+            service.register(build_payload(), jugador_id=5)
 
         self.assertEqual(context.exception.status_code, status.HTTP_403_FORBIDDEN)
 

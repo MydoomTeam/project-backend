@@ -10,16 +10,16 @@ router = APIRouter(tags=["jugadores"])
 
 
 @router.get("/jugadores/{jugador_id}", response_model=JugadorRead)
-def obtener_jugador(jugador_id: int, db: Session = Depends(get_db)):
-    jugador = JugadorService(db).obtener_jugador(jugador_id)
+def get_player(jugador_id: int, db: Session = Depends(get_db)):
+    jugador = JugadorService(db).get_player(jugador_id)
     if jugador is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jugador no encontrado")
     return jugador
 
 
 @router.post("/usuarios/registrar", response_model=JugadorRead, status_code=status.HTTP_201_CREATED)
-def registrar_usuario(payload: UsuarioRegistro, db: Session = Depends(get_db)):
-    outcome = JugadorService(db).registrar_usuario(payload)
+def register_user(payload: UsuarioRegistro, db: Session = Depends(get_db)):
+    outcome = JugadorService(db).register_user(payload)
     if outcome.is_duplicate:
         errores = []
         if outcome.duplicate_username:
@@ -31,8 +31,8 @@ def registrar_usuario(payload: UsuarioRegistro, db: Session = Depends(get_db)):
 
 
 @router.post("/usuarios/login", response_model=LoginResponse)
-def iniciar_sesion(payload: LoginRequest, db: Session = Depends(get_db)):
-    jugador = JugadorService(db).iniciar_sesion(payload)
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    jugador = JugadorService(db).login(payload)
     if jugador is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
     return LoginResponse(

@@ -39,8 +39,8 @@ class JugadorService:
         self.repo = JugadorRepository(db)
         self.audit_repo = AuditLogRepository(db)
 
-    def obtener_jugador(self, jugador_id: int) -> Jugador | None:
-        return self.repo.obtener_por_id(jugador_id)
+    def get_player(self, jugador_id: int) -> Jugador | None:
+        return self.repo.get_by_id(jugador_id)
 
     def _validate_password(self, password: str) -> None:
         for is_valid, message in _PASSWORD_RULES:
@@ -50,7 +50,7 @@ class JugadorService:
                     detail={"error": "validation_error", "details": [message]},
                 )
 
-    def cambiar_password(self, jugador_id: int, schema: PasswordUpdate):
+    def change_password(self, jugador_id: int, schema: PasswordUpdate):
         if schema.password != schema.password_confirm:
             raise HTTPException(
                 status_code=400,
@@ -59,7 +59,7 @@ class JugadorService:
 
         self._validate_password(schema.password)
 
-        jugador = self.repo.obtener_por_id(jugador_id)
+        jugador = self.repo.get_by_id(jugador_id)
         if jugador is None:
             raise HTTPException(status_code=404, detail="Jugador no encontrado")
 
@@ -87,15 +87,15 @@ class JugadorService:
     def _hash_password(self, password: str) -> str:
         return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
 
-    def registrar_usuario(self, data: UsuarioRegistro) -> RegistrationOutcome:
-        duplicados = self.repo.obtener_duplicados(data.nombre_usuario, data.correo_electronico)
+    def register_user(self, data: UsuarioRegistro) -> RegistrationOutcome:
+        duplicados = self.repo.get_duplicates(data.nombre_usuario, data.correo_electronico)
         if duplicados["usuario"] or duplicados["correo"]:
             return RegistrationOutcome(
                 duplicate_username=duplicados["usuario"],
                 duplicate_email=duplicados["correo"],
             )
         jugador = Jugador(
-            id=self.repo.siguiente_id(),
+            id=self.repo.next_id(),
             nombre_usuario=data.nombre_usuario,
             correo_electronico=data.correo_electronico,
             contrasena_hash=self._hash_password(data.contrasena),
@@ -103,7 +103,7 @@ class JugadorService:
             elo_global=0,
             fecha_ultimo_acceso=date.today(),
         )
-        creado = self.repo.crear(jugador)
+        creado = self.repo.create(jugador)
         logger.info(f"Usuario creado {creado.nombre_usuario}")
         return RegistrationOutcome(jugador=creado)
 
@@ -117,10 +117,10 @@ class JugadorService:
         except (ValueError, TypeError):
             return False
 
-    def iniciar_sesion(self, data: LoginRequest):
-        jugador = self.repo.obtener_por_login(data.identificador)
+    def login(self, data: LoginRequest):
+        jugador = self.repo.get_by_login(data.identificador)
         if jugador is None:
             return None
         if not self._verificar_password(data.contrasena, jugador.contrasena_hash):
             return None
-        return self.repo.actualizar_ultimo_acceso(jugador)
+        return self.repo.update_last_access(jugador)

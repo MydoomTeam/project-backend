@@ -21,47 +21,47 @@ router = APIRouter(tags=["tournaments"])
 
 
 @router.get("/tournaments/available", response_model=list[TournamentListResponse])
-def listar_torneos_disponibles(
+def list_available_tournaments(
     db: Session = Depends(get_db),
     _jugador_id: int = Depends(get_current_user),
 ) -> list[TournamentListResponse]:
-    return TournamentService(db).obtener_torneos_disponibles()
+    return TournamentService(db).get_available_tournaments()
 
 
 @router.post("/tournaments", response_model=TournamentResponse, status_code=status.HTTP_201_CREATED)
-def crear_torneo(
+def create_tournament(
     payload: TournamentCreate,
     db: Session = Depends(get_db),
     creador_id: int = Depends(get_current_user),
 ) -> TournamentResponse:
-    return TournamentService(db).crear_torneo(payload, creador_id)
+    return TournamentService(db).create_tournament(payload, creador_id)
 
 
 @router.post("/tournaments/register", response_model=RegistrationResponse, status_code=status.HTTP_201_CREATED)
-def inscribirse_en_torneo(
+def register_in_tournament(
     payload: RegistrationCreate,
     db: Session = Depends(get_db),
     jugador_id: int = Depends(get_current_user),
 ) -> RegistrationResponse:
-    return RegistrationService(db).registrar_inscripcion(payload, jugador_id)
+    return RegistrationService(db).register(payload, jugador_id)
 
 
 @router.get("/tournaments/{torneo_id}", response_model=TournamentDetailResponse)
-def obtener_detalle_torneo(
+def get_tournament_detail(
     torneo_id: int,
     db: Session = Depends(get_db),
     _jugador_id: int = Depends(get_current_user),
 ) -> TournamentDetailResponse:
-    return TournamentService(db).obtener_detalle_torneo(torneo_id)
+    return TournamentService(db).get_tournament_detail(torneo_id)
 
 
 @router.get("/tournaments/{torneo_id}/bracket", response_model=BracketResponse)
-def obtener_bracket(
+def get_bracket(
     torneo_id: int,
     db: Session = Depends(get_db),
     _jugador_id: int = Depends(get_current_user),
 ) -> BracketResponse:
-    return MatchService(db).obtener_bracket(torneo_id)
+    return MatchService(db).get_bracket(torneo_id)
 
 
 @router.post(
@@ -69,12 +69,12 @@ def obtener_bracket(
     response_model=BracketResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def generar_bracket(
+def generate_bracket(
     torneo_id: int,
     db: Session = Depends(get_db),
     admin_id: int = Depends(get_current_user),
 ) -> BracketResponse:
-    return MatchService(db).generar_bracket(torneo_id, admin_id)
+    return MatchService(db).generate_bracket(torneo_id, admin_id)
 
 
 @router.post(
@@ -82,12 +82,12 @@ def generar_bracket(
     response_model=BracketResponse,
     status_code=status.HTTP_200_OK,
 )
-def iniciar_torneo(
+def start_tournament(
     torneo_id: int,
     db: Session = Depends(get_db),
     admin_id: int = Depends(get_current_user),
 ) -> BracketResponse:
-    return MatchService(db).iniciar_torneo(torneo_id, admin_id)
+    return MatchService(db).start_tournament(torneo_id, admin_id)
 
 
 @router.post(
@@ -95,48 +95,48 @@ def iniciar_torneo(
     response_model=ResultadoResponse,
     status_code=status.HTTP_200_OK,
 )
-def registrar_resultado(
+def record_result(
     torneo_id: int,
     match_id: int,
     payload: ResultadoRequest,
     db: Session = Depends(get_db),
     admin_id: int = Depends(get_current_user),
 ) -> ResultadoResponse:
-    return MatchService(db).registrar_resultado(torneo_id, match_id, payload.ganador_id, admin_id)
+    return MatchService(db).record_result(torneo_id, match_id, payload.ganador_id, admin_id)
 
 
 @router.get("/tournaments/{torneo_id}/ranking", response_model=RankingResponse)
-def obtener_ranking(
+def get_ranking(
     torneo_id: int,
     db: Session = Depends(get_db),
     _jugador_id: int = Depends(get_current_user),
 ) -> RankingResponse:
-    return MatchService(db).obtener_ranking(torneo_id)
+    return MatchService(db).get_ranking(torneo_id)
 
 
 @router.get("/tournaments/{torneo_id}/jugadores/{jugador_id}/historial", response_model=list[MatchResponse])
-def obtener_historial_jugador(
+def get_player_history(
     torneo_id: int,
     jugador_id: int,
     db: Session = Depends(get_db),
     _jugador_id: int = Depends(get_current_user),
 ) -> list[MatchResponse]:
-    return MatchService(db).obtener_historial_jugador(torneo_id, jugador_id)
+    return MatchService(db).get_player_history(torneo_id, jugador_id)
 
 
 @router.post("/tournaments/{torneo_id}/cancelar", status_code=status.HTTP_204_NO_CONTENT)
-def cancelar_torneo(
+def cancel_tournament(
     torneo_id: int,
     db: Session = Depends(get_db),
     admin_id: int = Depends(get_current_user),
 ) -> None:
-    TournamentService(db).cancelar_torneo(torneo_id, admin_id)
+    TournamentService(db).cancel_tournament(torneo_id, admin_id)
 
 
 @router.delete("/tournaments/{torneo_id}/inscripcion", status_code=status.HTTP_204_NO_CONTENT)
-def cancelar_inscripcion(
+def cancel_registration(
     torneo_id: int,
     db: Session = Depends(get_db),
     jugador_id: int = Depends(get_current_user),
 ) -> None:
-    RegistrationService(db).cancelar_inscripcion(torneo_id, jugador_id)
+    RegistrationService(db).cancel_registration(torneo_id, jugador_id)

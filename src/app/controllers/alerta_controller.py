@@ -14,16 +14,16 @@ def get_alerta_service(db: Session = Depends(get_db)) -> AlertaService:
 
 
 @router.get("", response_model=AlertaListResponse)
-def get_alertas(
+def get_alerts(
     _jugador_id: int = Depends(get_current_user),
     service: AlertaService = Depends(get_alerta_service),
 ):
-    return {"items": service.get_alertas()}
+    return {"items": service.get_alerts()}
 
 @router.patch("/{id}/ack", response_model=AckResponse)
-def acknowledge_alerta(
+def acknowledge_alert(
     id: int,
     jugador_id: int = Depends(get_current_user),
     service: AlertaService = Depends(get_alerta_service)
 ):
-    return service.acknowledge_alerta(jugador_id, id)
+    return service.acknowledge_alert(jugador_id, id)

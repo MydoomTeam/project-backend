@@ -26,10 +26,10 @@ class FakeTournamentRepository:
         self.existing_tournament = existing_tournament
         self.saved_tournament = None
 
-    def obtener_por_nombre_activo(self, nombre: str):
+    def get_active_by_name(self, nombre: str):
         return self.existing_tournament
 
-    def guardar(self, torneo):
+    def save(self, torneo):
         self.saved_tournament = torneo
         return DummyTournament(
             id=10,
@@ -90,7 +90,7 @@ class TestCrearTorneo(unittest.TestCase):
         tournament_service_module.datetime = FixedDateTime
 
         service = TournamentService(db=object())
-        result = service.crear_torneo(build_payload(), creador_id=7)
+        result = service.create_tournament(build_payload(), creador_id=7)
 
         self.assertEqual(result.id, 10)
         self.assertEqual(result.nombre, "Torneo Unitario")
@@ -112,7 +112,7 @@ class TestCrearTorneo(unittest.TestCase):
         service = TournamentService(db=object())
 
         with self.assertRaises(HTTPException) as context:
-            service.crear_torneo(
+            service.create_tournament(
                 build_payload(tipo_eliminacion="Eliminación Sencilla", rondas=8),
                 creador_id=7,
             )
@@ -128,7 +128,7 @@ class TestCrearTorneo(unittest.TestCase):
         service = TournamentService(db=object())
 
         with self.assertRaises(HTTPException) as context:
-            service.crear_torneo(build_payload(nombre="Torneo Unitario"), creador_id=7)
+            service.create_tournament(build_payload(nombre="Torneo Unitario"), creador_id=7)
 
         self.assertEqual(context.exception.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("Ya existe un torneo activo", str(context.exception.detail))

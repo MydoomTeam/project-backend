@@ -17,19 +17,19 @@ class MatchRepository:
     def refresh(self, entity: MatchModel) -> None:
         self.db.refresh(entity)
 
-    def insertar_en_lote(self, matches: list[MatchModel]) -> list[MatchModel]:
+    def insert_batch(self, matches: list[MatchModel]) -> list[MatchModel]:
         self.db.add_all(matches)
         self.db.flush()
         for match in matches:
             self.db.refresh(match)
         return matches
 
-    def obtener_por_id(self, match_id: int) -> MatchModel | None:
+    def get_by_id(self, match_id: int) -> MatchModel | None:
         return self.db.execute(
             select(MatchModel).where(MatchModel.id == match_id)
         ).scalars().first()
 
-    def obtener_por_torneo(self, torneo_id: int) -> list[MatchModel]:
+    def get_by_tournament(self, torneo_id: int) -> list[MatchModel]:
         stmt = (
             select(MatchModel)
             .where(MatchModel.torneo_id == torneo_id)
@@ -37,7 +37,7 @@ class MatchRepository:
         )
         return list(self.db.execute(stmt).scalars().all())
 
-    def obtener_por_torneo_ronda(self, torneo_id: int, ronda: int) -> list[MatchModel]:
+    def get_by_tournament_round(self, torneo_id: int, ronda: int) -> list[MatchModel]:
         stmt = (
             select(MatchModel)
             .where(MatchModel.torneo_id == torneo_id, MatchModel.ronda == ronda)
@@ -45,7 +45,7 @@ class MatchRepository:
         )
         return list(self.db.execute(stmt).scalars().all())
 
-    def obtener_por_torneo_ronda_posicion(
+    def get_by_tournament_round_position(
         self, torneo_id: int, ronda: int, posicion: int
     ) -> MatchModel | None:
         stmt = select(MatchModel).where(
@@ -55,7 +55,7 @@ class MatchRepository:
         )
         return self.db.execute(stmt).scalars().first()
 
-    def obtener_por_torneo_ronda_posicion_bracket(
+    def get_by_tournament_round_position_bracket(
         self, torneo_id: int, ronda: int, posicion: int, bracket_tipo: str
     ) -> MatchModel | None:
         stmt = select(MatchModel).where(
@@ -66,7 +66,7 @@ class MatchRepository:
         )
         return self.db.execute(stmt).scalars().first()
 
-    def obtener_byes_ronda1(self, torneo_id: int) -> list[MatchModel]:
+    def get_round1_byes(self, torneo_id: int) -> list[MatchModel]:
         stmt = (
             select(MatchModel)
             .where(
@@ -80,7 +80,7 @@ class MatchRepository:
         )
         return list(self.db.execute(stmt).scalars().all())
 
-    def contar_activos_por_torneo(self, torneo_id: int) -> int:
+    def count_active_by_tournament(self, torneo_id: int) -> int:
         stmt = (
             select(func.count())
             .select_from(MatchModel)
@@ -91,7 +91,7 @@ class MatchRepository:
         )
         return self.db.execute(stmt).scalar() or 0
 
-    def contar_activos_por_ronda(self, torneo_id: int, ronda: int) -> int:
+    def count_active_by_round(self, torneo_id: int, ronda: int) -> int:
         stmt = (
             select(func.count())
             .select_from(MatchModel)
@@ -103,14 +103,14 @@ class MatchRepository:
         )
         return self.db.execute(stmt).scalar() or 0
 
-    def obtener_max_ronda(self, torneo_id: int) -> int:
+    def get_max_round(self, torneo_id: int) -> int:
         stmt = (
             select(func.max(MatchModel.ronda))
             .where(MatchModel.torneo_id == torneo_id)
         )
         return self.db.execute(stmt).scalar() or 0
 
-    def obtener_victorias_por_jugador(self, torneo_id: int) -> dict[int, int]:
+    def get_wins_by_player(self, torneo_id: int) -> dict[int, int]:
         stmt = (
             select(MatchModel.ganador_id, func.count())
             .where(
@@ -122,7 +122,7 @@ class MatchRepository:
         rows = self.db.execute(stmt).all()
         return {jugador_id: count for jugador_id, count in rows}
 
-    def obtener_historial_jugador(self, torneo_id: int, jugador_id: int) -> list[MatchModel]:
+    def get_player_history(self, torneo_id: int, jugador_id: int) -> list[MatchModel]:
         stmt = (
             select(MatchModel)
             .where(
@@ -138,7 +138,7 @@ class MatchRepository:
         )
         return list(self.db.execute(stmt).scalars().all())
 
-    def obtener_pares_jugados(self, torneo_id: int) -> set[tuple[int, int]]:
+    def get_played_pairs(self, torneo_id: int) -> set[tuple[int, int]]:
         stmt = select(MatchModel.jugador1_id, MatchModel.jugador2_id).where(
             MatchModel.torneo_id == torneo_id,
             MatchModel.jugador1_id.is_not(None),

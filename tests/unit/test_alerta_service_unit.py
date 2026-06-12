@@ -15,7 +15,7 @@ class TestAlertaServiceValidation(unittest.TestCase):
     def test_get_alertas_empty_list(self):
         self.mock_alerta_repo.get_all.return_value = []
         
-        result = self.service.get_alertas()
+        result = self.service.get_alerts()
         
         self.assertEqual(len(result), 0)
         self.mock_alerta_repo.get_all.assert_called_once()
@@ -30,7 +30,7 @@ class TestAlertaServiceValidation(unittest.TestCase):
         
         self.mock_alerta_repo.get_all.return_value = [mock_alerta]
         
-        result = self.service.get_alertas()
+        result = self.service.get_alerts()
         
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].id, 1)
@@ -44,7 +44,7 @@ class TestAlertaServiceValidation(unittest.TestCase):
         
         self.mock_alerta_repo.get_by_id.return_value = mock_alerta
         
-        result = self.service.acknowledge_alerta(admin_id, alerta_id)
+        result = self.service.acknowledge_alert(admin_id, alerta_id)
         
         self.assertEqual(result["message"], "acknowledged")
         self.mock_alerta_repo.get_by_id.assert_called_once_with(alerta_id)
@@ -57,7 +57,7 @@ class TestAlertaServiceValidation(unittest.TestCase):
         self.mock_alerta_repo.get_by_id.return_value = None
         
         with self.assertRaises(HTTPException) as ctx:
-            self.service.acknowledge_alerta(admin_id, alerta_id)
+            self.service.acknowledge_alert(admin_id, alerta_id)
         self.assertEqual(ctx.exception.status_code, 404)
         self.assertIn("no encontrada", str(ctx.exception.detail).lower())
 
@@ -69,7 +69,7 @@ class TestAlertaServiceValidation(unittest.TestCase):
         
         self.mock_alerta_repo.get_by_id.return_value = mock_alerta
         
-        self.service.acknowledge_alerta(admin_id, alerta_id)
+        self.service.acknowledge_alert(admin_id, alerta_id)
         
         self.mock_audit_repo.log_action.assert_called_once()
         call_args = self.mock_audit_repo.log_action.call_args
@@ -84,7 +84,7 @@ class TestAlertaServiceValidation(unittest.TestCase):
         
         self.mock_alerta_repo.get_by_id.return_value = mock_alerta
         
-        self.service.acknowledge_alerta(admin_id, alerta_id)
+        self.service.acknowledge_alert(admin_id, alerta_id)
         
         self.mock_alerta_repo.acknowledge.assert_called_once_with(mock_alerta)
 
@@ -98,7 +98,7 @@ class TestAlertaServiceValidation(unittest.TestCase):
         
         self.mock_alerta_repo.get_all.return_value = [mock_alerta]
         
-        result = self.service.get_alertas()
+        result = self.service.get_alerts()
         
         self.assertEqual(len(result), 1)
         self.assertTrue(hasattr(result[0], "id"))
@@ -117,8 +117,8 @@ class TestAlertaServiceValidation(unittest.TestCase):
         
         self.mock_alerta_repo.get_by_id.side_effect = [mock_alerta_1, mock_alerta_2]
         
-        result_1 = self.service.acknowledge_alerta(admin_id, alerta_id_1)
-        result_2 = self.service.acknowledge_alerta(admin_id, alerta_id_2)
+        result_1 = self.service.acknowledge_alert(admin_id, alerta_id_1)
+        result_2 = self.service.acknowledge_alert(admin_id, alerta_id_2)
         
         self.assertEqual(result_1["message"], "acknowledged")
         self.assertEqual(result_2["message"], "acknowledged")

@@ -48,13 +48,13 @@ class FakeTournamentRepository:
         self.torneo = torneo
         self.participantes = participantes or []
 
-    def obtener_por_id(self, _):
+    def get_by_id(self, _):
         return self.torneo
 
-    def obtener_participantes_confirmados(self, _):
+    def get_confirmed_participants(self, _):
         return self.participantes
 
-    def actualizar_estado(self, torneo, nuevo_estado):
+    def update_status(self, torneo, nuevo_estado):
         torneo.estado = nuevo_estado
         return torneo
 
@@ -82,46 +82,46 @@ class FakeMatchRepository:
     def refresh(self, _):
         pass
 
-    def insertar_en_lote(self, matches):
+    def insert_batch(self, matches):
         for i, m in enumerate(matches):
             m.id = i + 1
         self.inserted = matches
         return matches
 
-    def obtener_por_id(self, _):
+    def get_by_id(self, _):
         return self._match
 
-    def obtener_por_torneo(self, _):
+    def get_by_tournament(self, _):
         return self.inserted
 
-    def obtener_por_torneo_ronda(self, _, __):
+    def get_by_tournament_round(self, _, __):
         return []
 
-    def obtener_por_torneo_ronda_posicion(self, **__):
+    def get_by_tournament_round_position(self, **__):
         return self._siguiente
 
-    def obtener_por_torneo_ronda_posicion_bracket(self, **__):
+    def get_by_tournament_round_position_bracket(self, **__):
         return self._siguiente
 
-    def obtener_byes_ronda1(self, _):
+    def get_round1_byes(self, _):
         return []
 
-    def contar_activos_por_torneo(self, _):
+    def count_active_by_tournament(self, _):
         return 0
 
-    def contar_activos_por_ronda(self, _, __):
+    def count_active_by_round(self, _, __):
         return 0
 
-    def obtener_max_ronda(self, _):
+    def get_max_round(self, _):
         return 1
 
-    def obtener_victorias_por_jugador(self, _):
+    def get_wins_by_player(self, _):
         return {}
 
-    def obtener_pares_jugados(self, _):
+    def get_played_pairs(self, _):
         return set()
 
-    def obtener_historial_jugador(self, _, __):
+    def get_player_history(self, _, __):
         return []
 
 
@@ -129,7 +129,7 @@ class FakeJugadorRepository:
     def __init__(self, jugadores: list[DummyJugador] | None = None):
         self._store = {j.id: j for j in (jugadores or [])}
 
-    def obtener_por_id(self, jugador_id: int):
+    def get_by_id(self, jugador_id: int):
         return self._store.get(jugador_id)
 
 
@@ -156,20 +156,20 @@ class TestGenerarBracket(unittest.TestCase):
     def test_lanza_404_si_torneo_no_existe(self):
         self._inyectar(FakeTournamentRepository(torneo=None))
         with self.assertRaises(HTTPException) as ctx:
-            MatchService(db=FakeDb()).generar_bracket(99, admin_id=10)
+            MatchService(db=FakeDb()).generate_bracket(99, admin_id=10)
         self.assertEqual(ctx.exception.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_lanza_403_si_usuario_no_es_el_creador(self):
         self._inyectar(FakeTournamentRepository(torneo=DummyTorneo(creador_id=10)))
         with self.assertRaises(HTTPException) as ctx:
-            MatchService(db=FakeDb()).generar_bracket(1, admin_id=99)
+            MatchService(db=FakeDb()).generate_bracket(1, admin_id=99)
         self.assertEqual(ctx.exception.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_lanza_400_si_participantes_insuficientes(self):
         repo = FakeTournamentRepository(torneo=DummyTorneo(creador_id=10), participantes=[(1, 1500)])
         self._inyectar(repo)
         with self.assertRaises(HTTPException) as ctx:
-            MatchService(db=FakeDb()).generar_bracket(1, admin_id=10)
+            MatchService(db=FakeDb()).generate_bracket(1, admin_id=10)
         self.assertEqual(ctx.exception.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_bracket_exitoso_genera_todas_las_rondas_y_registra_auditoria(self):
@@ -178,7 +178,7 @@ class TestGenerarBracket(unittest.TestCase):
             participantes=[(1, 2000), (2, 1800), (3, 1600), (4, 1400)],
         )
         self._inyectar(torneo_repo)
-        result = MatchService(db=FakeDb()).generar_bracket(1, admin_id=10)
+        result = MatchService(db=FakeDb()).generate_bracket(1, admin_id=10)
 
         self.assertEqual(result.estado_torneo, "Listo para iniciar")
         self.assertEqual({m.ronda for m in result.matches}, {1, 2})
@@ -206,7 +206,7 @@ class TestRegistrarResultado(unittest.TestCase):
         match_repo = FakeMatchRepository(match=DummyMatch(jugador1_id=1, jugador2_id=2))
         self._inyectar(torneo_repo, match_repo, FakeJugadorRepository())
         with self.assertRaises(HTTPException) as ctx:
-            MatchService(db=FakeDb()).registrar_resultado(1, 1, ganador_id=99, admin_id=10)
+            MatchService(db=FakeDb()).record_result(1, 1, ganador_id=99, admin_id=10)
         self.assertEqual(ctx.exception.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_actualiza_elo_de_ambos_jugadores(self):
@@ -216,7 +216,7 @@ class TestRegistrarResultado(unittest.TestCase):
         jugadores = [DummyJugador(id=1, elo_global=1000), DummyJugador(id=2, elo_global=1000)]
         self._inyectar(torneo_repo, match_repo, FakeJugadorRepository(jugadores))
 
-        resultado = MatchService(db=FakeDb()).registrar_resultado(1, 1, ganador_id=1, admin_id=10)
+        resultado = MatchService(db=FakeDb()).record_result(1, 1, ganador_id=1, admin_id=10)
 
         self.assertGreater(resultado.ganador_nuevo_elo, 1000)
         self.assertLess(resultado.perdedor_nuevo_elo, 1000)
@@ -229,7 +229,7 @@ class TestRegistrarResultado(unittest.TestCase):
         jugadores = [DummyJugador(id=1, elo_global=1500), DummyJugador(id=2, elo_global=1200)]
         self._inyectar(torneo_repo, match_repo, FakeJugadorRepository(jugadores))
 
-        resultado = MatchService(db=FakeDb()).registrar_resultado(1, 1, ganador_id=1, admin_id=10)
+        resultado = MatchService(db=FakeDb()).record_result(1, 1, ganador_id=1, admin_id=10)
 
         self.assertTrue(resultado.torneo_finalizado)
         self.assertEqual(torneo.estado, "Finalizado")

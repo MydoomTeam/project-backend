@@ -15,10 +15,10 @@ class AlertaService:
     def from_session(cls, db: Session) -> "AlertaService":
         return cls(AlertaRepository(db), AuditLogRepository(db))
 
-    def get_alertas(self) -> list[AlertaResponse]:
+    def get_alerts(self) -> list[AlertaResponse]:
         return [self._to_response(alerta) for alerta in self.alerta_repo.get_all()]
 
-    def acknowledge_alerta(self, actor_id: int, alerta_id: int):
+    def acknowledge_alert(self, actor_id: int, alerta_id: int):
         alerta = self.alerta_repo.get_by_id(alerta_id)
         if not alerta:
             raise HTTPException(status_code=404, detail="Alerta no encontrada")

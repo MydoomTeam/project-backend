@@ -3,9 +3,9 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-_PATRON_NOMBRE = r"^[A-Za-z0-9]+$"
-_PATRON_PASSWORD = r"^[A-Za-z0-9!@#$%^&*()\-_+=\[\]{};:.,<>/?]+$"
-_PATRON_IDENTIFICADOR = r"^[A-Za-z0-9!@#$%^&*()\-_+=\[\]{};:.,<>/?@]+$"
+_PATTERN_USERNAME = r"^[A-Za-z0-9]+$"
+_PATTERN_PASSWORD = r"^[A-Za-z0-9!@#$%^&*()\-_+=\[\]{};:.,<>/?]+$"
+_PATTERN_IDENTIFIER = r"^[A-Za-z0-9!@#$%^&*()\-_+=\[\]{};:.,<>/?@]+$"
 
 
 class PasswordUpdate(BaseModel):
@@ -32,14 +32,14 @@ class UsuarioRegistro(BaseModel):
     @field_validator("nombre_usuario")
     @classmethod
     def validar_nombre(cls, value):
-        if not re.match(_PATRON_NOMBRE, value):
+        if not re.match(_PATTERN_USERNAME, value):
             raise ValueError("El nombre de usuario solo permite letras y números")
         return value
 
     @field_validator("contrasena")
     @classmethod
     def validar_contrasena(cls, value):
-        if not re.match(_PATRON_PASSWORD, value):
+        if not re.match(_PATTERN_PASSWORD, value):
             raise ValueError("La contraseña contiene caracteres no permitidos")
         if not re.search(r"[A-Za-z]", value):
             raise ValueError("La contraseña debe contener al menos una letra")
@@ -57,14 +57,14 @@ class LoginRequest(BaseModel):
     @field_validator("identificador")
     @classmethod
     def validar_identificador(cls, value):
-        if not re.match(_PATRON_IDENTIFICADOR, value):
+        if not re.match(_PATTERN_IDENTIFIER, value):
             raise ValueError("Caracteres inválidos en el identificador")
         return value
 
     @field_validator("contrasena")
     @classmethod
     def validar_contrasena_login(cls, value):
-        if not re.match(_PATRON_PASSWORD, value):
+        if not re.match(_PATTERN_PASSWORD, value):
             raise ValueError("Caracteres inválidos en la contraseña")
         return value
 
