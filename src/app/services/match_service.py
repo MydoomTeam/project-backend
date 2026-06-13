@@ -70,16 +70,16 @@ class MatchService:
         )
 
         ranking = [
-            RankingEntry(position=i + 1, jugador_id=e["player_id"], wins=e["wins"], global_elo=e["global_elo"])
+            RankingEntry(position=i + 1, player_id=e["player_id"], wins=e["wins"], global_elo=e["global_elo"])
             for i, e in enumerate(entries)
         ]
         return RankingResponse(tournament_id=tournament_id, elimination_type=tournament.elimination_type, status=tournament.status, ranking=ranking)
 
-    def get_player_history(self, tournament_id: int, jugador_id: int) -> list[MatchResponse]:
+    def get_player_history(self, tournament_id: int, player_id: int) -> list[MatchResponse]:
         tournament = self.tournament_repo.get_by_id(tournament_id)
         if tournament is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Torneo no encontrado")
-        matches = self.match_repo.get_player_history(tournament_id, jugador_id)
+        matches = self.match_repo.get_player_history(tournament_id, player_id)
         return [MatchResponse.model_validate(m) for m in matches]
 
     def get_bracket(self, tournament_id: int) -> BracketResponse:
@@ -283,11 +283,11 @@ class MatchService:
         return False
 
     @staticmethod
-    def _place_in_slot(match: MatchModel, slot: int, jugador_id: int) -> None:
+    def _place_in_slot(match: MatchModel, slot: int, player_id: int) -> None:
         if slot == _SLOT_PLAYER1:
-            match.player1_id = jugador_id
+            match.player1_id = player_id
         else:
-            match.player2_id = jugador_id
+            match.player2_id = player_id
         if match.player1_id is not None and match.player2_id is not None:
             match.status = _STATUS_IN_PROGRESS
 
@@ -353,12 +353,12 @@ class MatchService:
         else:
             self._place_in_grand_final(tournament_id, _SLOT_PLAYER2, winner_id)
 
-    def _place_in_grand_final(self, tournament_id: int, slot: int, jugador_id: int) -> None:
+    def _place_in_grand_final(self, tournament_id: int, slot: int, player_id: int) -> None:
         grand_final = self.match_repo.get_by_tournament_round_position_bracket(
             tournament_id=tournament_id, round=1, position=0, bracket_type=_BRACKET_GRAND_FINAL,
         )
         if grand_final is not None:
-            self._place_in_slot(grand_final, slot, jugador_id)
+            self._place_in_slot(grand_final, slot, player_id)
 
     @staticmethod
     def _loser_route_to_losers(wb_round: int, wb_position: int) -> tuple[int, int, int]:

@@ -24,8 +24,8 @@ class TournamentService:
     def get_available_tournaments(self) -> list[TournamentModel]:
         return self.repo.list_available()
 
-    def get_tournament_detail(self, torneo_id: int) -> TournamentDetailResponse:
-        result = self.repo.get_detail_with_creator(torneo_id)
+    def get_tournament_detail(self, tournament_id: int) -> TournamentDetailResponse:
+        result = self.repo.get_detail_with_creator(tournament_id)
         if result is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -43,8 +43,8 @@ class TournamentService:
             total_participants=total_participants,
         )
 
-    def cancel_tournament(self, torneo_id: int, admin_id: int) -> None:
-        tournament = self.repo.get_by_id(torneo_id)
+    def cancel_tournament(self, tournament_id: int, admin_id: int) -> None:
+        tournament = self.repo.get_by_id(tournament_id)
         if tournament is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

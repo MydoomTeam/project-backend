@@ -129,8 +129,8 @@ class FakePlayerRepository:
     def __init__(self, players: list[DummyPlayer] | None = None):
         self._store = {j.id: j for j in (players or [])}
 
-    def get_by_id(self, jugador_id: int):
-        return self._store.get(jugador_id)
+    def get_by_id(self, player_id: int):
+        return self._store.get(player_id)
 
 
 class TestGenerateBracket(unittest.TestCase):

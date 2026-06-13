@@ -12,7 +12,7 @@ router = APIRouter(prefix="/admins", tags=["admins"])
 @router.post("/password")
 def update_admin_password(
     data: PasswordUpdate,
-    jugador_id: int = Depends(get_current_user),
+    player_id: int = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return PlayerService(db).change_password(jugador_id, data)
+    return PlayerService(db).change_password(player_id, data)

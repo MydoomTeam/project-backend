@@ -16,20 +16,20 @@ class PlayerRepository:
         self.db.refresh(player)
         return player
 
-    def get_by_id(self, jugador_id: int) -> Player | None:
-        stmt = select(Player).where(Player.id == jugador_id)
+    def get_by_id(self, player_id: int) -> Player | None:
+        stmt = select(Player).where(Player.id == player_id)
         return self.db.execute(stmt).scalars().first()
 
-    def ensure_system_user(self, jugador_id: int) -> Player:
+    def ensure_system_user(self, player_id: int) -> Player:
         """Garantiza un Player de sistema con id fijo, actor de los eventos
         automáticos (scheduler). Satisface la FK audit_logs.user_id -> players.id.
         """
-        existing = self.get_by_id(jugador_id)
+        existing = self.get_by_id(player_id)
         if existing is not None:
             return existing
 
         player = Player(
-            id=jugador_id,
+            id=player_id,
             username="system",
             email="system@localhost",
             password_hash="",

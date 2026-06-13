@@ -1,8 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
-
-
-class RegistrationCreate(BaseModel):
-    tournament_id: int = Field(gt=0)
+from pydantic import BaseModel, ConfigDict
 
 
 class RegistrationResponse(BaseModel):

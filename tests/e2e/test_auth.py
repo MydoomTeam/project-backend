@@ -9,8 +9,8 @@ from app.services.player_service import PlayerService, RegistrationOutcome
 
 
 CLIENT = TestClient(app)
-REGISTER_URL = "/usuarios/registrar"
-LOGIN_URL = "/usuarios/login"
+REGISTER_URL = "/users"
+LOGIN_URL = "/sessions"
 
 
 @dataclass

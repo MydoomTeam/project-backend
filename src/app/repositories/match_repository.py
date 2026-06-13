@@ -120,16 +120,16 @@ class MatchRepository:
             .group_by(MatchModel.winner_id)
         )
         rows = self.db.execute(stmt).all()
-        return {jugador_id: count for jugador_id, count in rows}
+        return {player_id: count for player_id, count in rows}
 
-    def get_player_history(self, tournament_id: int, jugador_id: int) -> list[MatchModel]:
+    def get_player_history(self, tournament_id: int, player_id: int) -> list[MatchModel]:
         stmt = (
             select(MatchModel)
             .where(
                 MatchModel.tournament_id == tournament_id,
                 or_(
-                    MatchModel.player1_id == jugador_id,
-                    MatchModel.player2_id == jugador_id,
+                    MatchModel.player1_id == player_id,
+                    MatchModel.player2_id == player_id,
                 ),
                 MatchModel.player1_id.is_not(None),
                 MatchModel.player2_id.is_not(None),

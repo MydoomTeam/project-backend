@@ -6,18 +6,18 @@ from app.core.database import get_db
 from app.domain.schemas.player import PlayerRead, LoginRequest, LoginResponse, UserRegistration
 from app.services.player_service import PlayerService
 
-router = APIRouter(tags=["jugadores"])
+router = APIRouter(tags=["players"])
 
 
-@router.get("/jugadores/{jugador_id}", response_model=PlayerRead)
-def get_player(jugador_id: int, db: Session = Depends(get_db)):
-    player = PlayerService(db).get_player(jugador_id)
+@router.get("/players/{player_id}", response_model=PlayerRead)
+def get_player(player_id: int, db: Session = Depends(get_db)):
+    player = PlayerService(db).get_player(player_id)
     if player is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jugador no encontrado")
     return player
 
 
-@router.post("/usuarios/registrar", response_model=PlayerRead, status_code=status.HTTP_201_CREATED)
+@router.post("/users", response_model=PlayerRead, status_code=status.HTTP_201_CREATED)
 def register_user(payload: UserRegistration, db: Session = Depends(get_db)):
     outcome = PlayerService(db).register_user(payload)
     if outcome.is_duplicate:
@@ -30,7 +30,7 @@ def register_user(payload: UserRegistration, db: Session = Depends(get_db)):
     return outcome.player
 
 
-@router.post("/usuarios/login", response_model=LoginResponse)
+@router.post("/sessions", response_model=LoginResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     player = PlayerService(db).login(payload)
     if player is None:

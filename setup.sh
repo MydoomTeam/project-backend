@@ -23,6 +23,11 @@ if [ ! -f .env ] && [ -f .env.example ]; then
   cp .env.example .env
 fi
 
+# Block: wait for PostgreSQL to be ready, then apply DB migrations
+# Alembic crea/actualiza el esquema (create_all esta congelado).
+sleep 10
+alembic upgrade head
+
 # Block: basic check (testing placeholder)
 python -m pip --version
 

@@ -2,6 +2,8 @@
 
 Backend monolítico con FastAPI + SQLAlchemy y PostgreSQL 16 en Docker. Gestión de torneos con múltiples formatos de eliminación, sistema de ELO adaptativo, registro y login de jugadores.
 
+> **Convención de idioma:** todo el contrato técnico (rutas, parámetros, claves JSON, tablas y columnas) está en **inglés**. Los **valores de negocio** (estados, formatos, roles, mensajes) permanecen en **español** porque son contenido visible para el usuario. El frontend se encarga de presentarlos.
+
 ## Stack
 
 - Python 3.12+
@@ -9,6 +11,7 @@ Backend monolítico con FastAPI + SQLAlchemy y PostgreSQL 16 en Docker. Gestión
 - SQLAlchemy 2.0
 - PostgreSQL 16 (Docker)
 - Driver: psycopg2-binary
+- Migraciones: Alembic
 
 ## Estructura
 
@@ -17,14 +20,17 @@ project-backend/
 ├── .env.example
 ├── docker-compose.yml
 ├── requirements.txt
+├── alembic.ini
 ├── setup.bat / setup.sh
+├── alembic/            # Migraciones de esquema
+├── scripts/            # Helpers (reset_db.py, seed_overdue_postgres.py)
 └── src/
     └── app/
         ├── api/            # Endpoints de torneos y partidas
-        ├── controllers/    # Endpoints de auth, admin y alertas
-        ├── core/           # Base de datos, auth, dependencias
-        ├── domain/         # Modelos y schemas del dominio original
-        ├── models/         # Modelos ORM (torneos, matches, inscripciones)
+        ├── controllers/    # Endpoints de auth, admin, jugadores y alertas
+        ├── core/           # Base de datos, auth, configuración
+        ├── domain/         # Modelos y schemas del stack de jugadores/alertas
+        ├── models/         # Modelos ORM (tournaments, matches, registrations, audit_logs)
         ├── repositories/   # Acceso a base de datos (ORM, sin SQL crudo)
         ├── schemas/        # Schemas Pydantic de request/response
         ├── services/       # Lógica de negocio
@@ -37,68 +43,92 @@ tests/
 
 ## Configuración de entorno
 
-Crear `.env` desde el ejemplo:
+Copiar `.env.example` a `.env` y ajustar:
 
 ```
 DATABASE_URL=postgresql+psycopg2://arenasync:arenasync@localhost:5432/arenasyncdb
 ```
 
 > Los valores de `docker-compose.yml` deben coincidir con `DATABASE_URL`.
+> `.env` **no** se versiona (está en `.gitignore`): cada quien crea el suyo desde `.env.example`.
 
 ## Arranque
 
-**Con scripts automáticos:**
+### Opción A — Script automático (recomendado, primera vez)
+
+El script levanta Docker, crea el venv, instala dependencias, copia `.env` y **aplica las migraciones** (`alembic upgrade head`):
 
 ```bash
 # Windows
-setup.bat
+.\setup.bat
 
 # Linux/macOS
 ./setup.sh
 ```
 
-**Manual:**
+Luego, con el venv activado, arranca el servidor:
 
 ```bash
-# 1. Crear entorno virtual
+uvicorn app.main:app --reload --app-dir src
+```
+
+### Opción B — Manual (paso a paso)
+
+```bash
+# 1. Crear y activar entorno virtual
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1   # Windows
-source .venv/bin/activate       # Linux/macOS
+.\.venv\Scripts\Activate.ps1    # Windows (PowerShell)
+source .venv/bin/activate        # Linux/macOS
 
 # 2. Instalar dependencias
 pip install -r requirements.txt
 
-# 3. Copiar .env
-copy .env.example .env
+# 3. Copiar .env desde el ejemplo
+copy .env.example .env           # Windows
+cp .env.example .env             # Linux/macOS
 
-# 4. Levantar base de datos
+# 4. Levantar la base de datos (PostgreSQL en Docker)
 docker compose up -d
 
-# 5. Ejecutar servidor
+# 5. Crear/actualizar el esquema con Alembic  (OBLIGATORIO)
+alembic upgrade head
+
+# 6. Ejecutar el servidor
 uvicorn app.main:app --reload --app-dir src
 ```
 
-Docs interactivos: `http://localhost:8000/docs`
+Docs interactivos (Swagger): `http://localhost:8000/docs`
+
+> ### ¿Qué hace `alembic upgrade head` y por qué es obligatorio?
+> **Alembic** es la herramienta de **migraciones** de SQLAlchemy: lleva el control de versiones del **esquema de la base de datos** (tablas y columnas) mediante archivos en `alembic/versions/`, cada uno con un `upgrade()` (aplicar) y un `downgrade()` (revertir).
+>
+> En este proyecto, la app **ya no crea las tablas sola** (`create_all` está desactivado a propósito): la **única fuente de verdad del esquema es Alembic**. Por eso, sobre una base de datos vacía **debes ejecutar `alembic upgrade head`** una vez; si no, el servidor arranca pero **no existen las tablas** y toda operación de BD falla.
+>
+> - `alembic upgrade head` → aplica todas las migraciones pendientes hasta la última.
+> - `alembic downgrade -1` → revierte la última migración.
+> - `alembic current` → muestra en qué versión está tu BD.
+>
+> Solo necesitas volver a correrlo cuando se agreguen nuevas migraciones (cambios de esquema).
 
 ## Ejecutar tests
 
 ```bash
-pytest tests/
+pytest
 ```
 
 ---
 
 ## Guía de uso de la API
 
-### Cómo funciona la autenticación
+### Autenticación
 
-La mayoría de endpoints requieren que el servidor sepa quién eres. Cada request debe incluir este header:
+La mayoría de endpoints requieren un token. Cada request debe incluir:
 
 ```
 Authorization: Bearer <token>
 ```
 
-El token lo obtienes al hacer login. No hay roles separados — cualquier jugador puede crear torneos. El que crea el torneo se convierte automáticamente en su administrador (solo él puede generar el bracket, iniciar el torneo y registrar resultados).
+El token se obtiene al hacer login. No hay roles separados — cualquier jugador puede crear torneos. El que crea el torneo se convierte en su administrador (solo él puede generar el bracket, iniciar el torneo, registrar resultados y cancelarlo).
 
 ---
 
@@ -107,120 +137,101 @@ El token lo obtienes al hacer login. No hay roles separados — cualquier jugado
 #### 1. Registrar un jugador
 
 ```
-POST http://localhost:8000/usuarios/registrar
+POST /users
 ```
 
 ```json
 {
-  "nombre_usuario": "carlos99",
-  "correo_electronico": "carlos@gmail.com",
-  "contrasena": "MiClave2026!"
+  "username": "carlos99",
+  "email": "carlos@gmail.com",
+  "password": "MiClave2026!"
 }
 ```
 
-**Reglas del nombre de usuario:** solo letras y números, entre 3 y 30 caracteres. Sin espacios ni símbolos.
+**Reglas de `username`:** solo letras y números, entre 3 y 30 caracteres.
 
-**Reglas de la contraseña:** mínimo 8 caracteres y debe tener obligatoriamente las tres cosas:
-- Al menos una letra (mayúscula o minúscula)
-- Al menos un número
-- Al menos un símbolo: `! @ # $ % ^ & ( ) - _ + = [ ] { } ; : . , < > / ?`
+**Reglas de `password`:** mínimo 8 caracteres, con al menos una letra, un número y un símbolo (`! @ # $ % ^ & ( ) - _ + = [ ] { } ; : . , < > / ?`).
 
-Ejemplos válidos: `Arena2026!`, `Password1@`, `mi3Clave#`
-
-**Respuesta exitosa — 201:**
+**Respuesta — 201:**
 
 ```json
 {
   "id": 1,
-  "nombre_usuario": "carlos99",
-  "correo_electronico": "carlos@gmail.com",
-  "rol": "JUGADOR",
-  "elo_global": 0,
-  "fecha_ultimo_acceso": "2026-06-08"
+  "username": "carlos99",
+  "email": "carlos@gmail.com",
+  "role": "JUGADOR",
+  "last_access_date": "2026-06-08",
+  "global_elo": 0
 }
 ```
-
-> Guarda el `id` — es tu identificador de jugador.
 
 ---
 
-#### 2. Hacer login
+#### 2. Hacer login (crear sesión)
 
 ```
-POST http://localhost:8000/usuarios/login
+POST /sessions
 ```
 
 ```json
 {
-  "identificador": "carlos99",
-  "contrasena": "MiClave2026!"
+  "identifier": "carlos99",
+  "password": "MiClave2026!"
 }
 ```
 
-> En `identificador` puedes poner el nombre de usuario **o** el correo electrónico.
+> En `identifier` puedes poner el `username` **o** el `email`.
 
-**Respuesta exitosa — 200:**
+**Respuesta — 200:**
 
 ```json
 {
-  "access_token": "eyJ1c2VyX2lkIjoxLCJpYXQiOjE3NDk0MjU2MDB9.Xk2pR9mNvTqLs3fWoA7c",
+  "access_token": "eyJ1c2VyX2lkIjox...",
   "token_type": "bearer",
-  "jugador": {
+  "player": {
     "id": 1,
-    "nombre_usuario": "carlos99",
-    "correo_electronico": "carlos@gmail.com",
-    "rol": "JUGADOR",
-    "elo_global": 0,
-    "fecha_ultimo_acceso": "2026-06-08"
+    "username": "carlos99",
+    "email": "carlos@gmail.com",
+    "role": "JUGADOR",
+    "last_access_date": "2026-06-08",
+    "global_elo": 0
   }
 }
 ```
 
-> Copia el `access_token`. Úsalo en todos los demás requests así:
-> ```
-> Authorization: Bearer eyJ1c2VyX2lkIjoxLCJpYXQiOjE3NDk0MjU2MDB9.Xk2pR9mNvTqLs3fWoA7c
-> ```
+> Usa el `access_token` en los demás requests: `Authorization: Bearer <access_token>`.
 
 ---
 
 ### Módulo 2 — Torneos
 
-> Todos estos endpoints requieren el header `Authorization: Bearer <token>`
+> Requieren `Authorization: Bearer <token>`.
 
-#### 3. Ver torneos disponibles para inscribirse
+#### 3. Ver torneos disponibles
 
 ```
-GET http://localhost:8000/tournaments/available
+GET /tournaments/available
 ```
 
-No lleva body. Devuelve la lista de torneos en estado `"Pendiente"`.
-
----
+Sin body. Devuelve los torneos en estado `"Pendiente"`.
 
 #### 4. Crear un torneo
 
 ```
-POST http://localhost:8000/tournaments
+POST /tournaments
 ```
 
 ```json
 {
-  "nombre": "Copa Semestral 2026",
-  "tipo_eliminacion": "Eliminación Sencilla",
-  "rondas": 3
+  "name": "Copa Semestral 2026",
+  "elimination_type": "Eliminación Sencilla",
+  "rounds": 3
 }
 ```
 
-**Valores válidos para `tipo_eliminacion`:**
+**Valores válidos de `elimination_type`:** `"Eliminación Sencilla"`, `"Eliminación Doble"`, `"Round Robin"`, `"Swiss"`.
 
-| Valor exacto | Descripción |
-|---|---|
-| `"Eliminación Sencilla"` | Una derrota y quedas fuera |
-| `"Eliminación Doble"` | Necesitas perder dos veces para quedar fuera |
-| `"Round Robin"` | Todos juegan contra todos |
-| `"Swiss"` | Todos juegan la misma cantidad de rondas |
-
-**Límites de rondas:**
+**Límites:**
 
 | Formato | Mín. jugadores | Máx. rondas |
 |---|---|---|
@@ -229,330 +240,251 @@ POST http://localhost:8000/tournaments
 | Round Robin | 3 | 3 |
 | Swiss | 4 | 7 |
 
-**Respuesta exitosa — 201:**
+**Respuesta — 201:**
 
 ```json
 {
   "id": 5,
-  "nombre": "Copa Semestral 2026",
-  "tipo_eliminacion": "Eliminación Sencilla",
-  "rondas": 3,
-  "estado": "Pendiente",
-  "creador_id": 1
+  "name": "Copa Semestral 2026",
+  "elimination_type": "Eliminación Sencilla",
+  "rounds": 3,
+  "status": "Pendiente",
+  "creator_id": 1
 }
 ```
-
-> Guarda el `id` del torneo.
-
----
 
 #### 5. Ver detalle de un torneo
 
 ```
-GET http://localhost:8000/tournaments/5
+GET /tournaments/5
 ```
 
-Cambia `5` por el ID del torneo. No lleva body.
-
----
+```json
+{
+  "id": 5,
+  "name": "Copa Semestral 2026",
+  "elimination_type": "Eliminación Sencilla",
+  "rounds": 3,
+  "status": "Pendiente",
+  "creator_id": 1,
+  "creator_name": "carlos99",
+  "total_participants": 0
+}
+```
 
 #### 6. Inscribirse en un torneo
 
 ```
-POST http://localhost:8000/tournaments/register
+POST /tournaments/5/registrations
 ```
 
-```json
-{
-  "torneo_id": 5
-}
-```
-
-El servidor sabe quién eres por tu token. El creador del torneo no puede inscribirse en su propio torneo.
-
-**Respuesta exitosa — 201:**
-
-```json
-{
-  "id": 12,
-  "torneo_id": 5,
-  "jugador_id": 2,
-  "estado": "Confirmado"
-}
-```
-
----
-
-#### 7. Cancelar tu inscripción
-
-```
-DELETE http://localhost:8000/tournaments/5/inscripcion
-```
-
-Cambia `5` por el ID del torneo. Solo funciona si el torneo está en estado `"Pendiente"`. No lleva body. Devuelve **204** si fue exitoso.
-
-> Si luego quieres volver a inscribirte en el mismo torneo puedes hacerlo — el sistema reutiliza tu inscripción anterior.
-
----
-
-#### 8. Cancelar un torneo (solo el creador)
-
-```
-POST http://localhost:8000/tournaments/5/cancelar
-```
-
-Cambia `5` por el ID del torneo. Solo funciona si tú eres quien creó ese torneo y está en estado `"Pendiente"` o `"Listo para iniciar"`. No lleva body. Devuelve **204**.
-
-> Al cancelar, el torneo se borra completamente junto con todas sus inscripciones y matches. El nombre queda libre para usarlo en un torneo nuevo.
-
----
-
-### Módulo 3 — Bracket y Partidas
-
-> Generar, iniciar y registrar resultados solo lo puede hacer el **creador del torneo**.
-
-#### 9. Generar el bracket (solo el creador)
-
-```
-POST http://localhost:8000/tournaments/5/bracket
-```
-
-Cambia `5` por el ID del torneo. El torneo debe estar en `"Pendiente"` y tener suficientes jugadores inscritos. Cambia el estado a `"Listo para iniciar"`.
+Sin body — el `tournament_id` va en la ruta y el jugador se identifica por su token. El creador no puede inscribirse en su propio torneo.
 
 **Respuesta — 201:**
 
 ```json
 {
-  "torneo_id": 5,
-  "estado_torneo": "Listo para iniciar",
+  "id": 12,
+  "tournament_id": 5,
+  "player_id": 2,
+  "status": "Confirmado"
+}
+```
+
+#### 7. Cancelar tu inscripción
+
+```
+DELETE /tournaments/5/registrations
+```
+
+Solo si el torneo está en `"Pendiente"`. Sin body. Devuelve **204**.
+
+> Si te vuelves a inscribir en el mismo torneo, el sistema reutiliza tu inscripción anterior.
+
+#### 8. Cancelar un torneo (solo el creador)
+
+```
+DELETE /tournaments/5
+```
+
+Solo el creador, y solo si está en `"Pendiente"` o `"Listo para iniciar"`. Sin body. Devuelve **204**.
+
+> Al cancelar, el torneo se borra junto con sus inscripciones y matches. El nombre queda libre.
+
+---
+
+### Módulo 3 — Bracket y Partidas
+
+> Generar, iniciar, registrar resultados y cancelar: solo el **creador**.
+
+#### 9. Generar el bracket (solo el creador)
+
+```
+POST /tournaments/5/bracket
+```
+
+El torneo debe estar en `"Pendiente"` con suficientes jugadores. Pasa a `"Listo para iniciar"`.
+
+**Respuesta — 201:**
+
+```json
+{
+  "tournament_id": 5,
+  "tournament_status": "Listo para iniciar",
   "matches": [
     {
       "id": 10,
-      "ronda": 1,
-      "posicion": 0,
-      "bracket_tipo": "ganadores",
-      "jugador1_id": 1,
-      "jugador2_id": 3,
-      "ganador_id": null,
-      "estado": "Programado"
-    },
-    {
-      "id": 11,
-      "ronda": 1,
-      "posicion": 1,
-      "bracket_tipo": "ganadores",
-      "jugador1_id": 2,
-      "jugador2_id": 4,
-      "ganador_id": null,
-      "estado": "Programado"
+      "tournament_id": 5,
+      "round": 1,
+      "position": 0,
+      "bracket_type": "ganadores",
+      "player1_id": 1,
+      "player2_id": 3,
+      "winner_id": null,
+      "status": "Programado"
     }
   ]
 }
 ```
 
-> Anota los `id` de los matches — los necesitas para registrar resultados.
-
----
-
 #### 10. Iniciar el torneo (solo el creador)
 
 ```
-POST http://localhost:8000/tournaments/5/iniciar
+POST /tournaments/5/start
 ```
 
-El torneo debe estar en `"Listo para iniciar"`. No lleva body. Cambia el estado a `"En curso"` y activa los matches de la primera ronda. Los BYEs se resuelven automáticamente.
+El torneo debe estar en `"Listo para iniciar"`. Sin body. Pasa a `"En curso"` y activa la primera ronda. Los BYEs se resuelven solos. Si lo intenta alguien que no es el creador → **403**.
 
----
-
-#### 11. Ver todos los matches del torneo
+#### 11. Ver todos los matches
 
 ```
-GET http://localhost:8000/tournaments/5/bracket
+GET /tournaments/5/bracket
 ```
 
-Cambia `5` por el ID del torneo. No lleva body. Útil para ver los IDs de los matches y su estado actual.
-
----
+Devuelve un `BracketResponse` (mismo formato que el punto 9).
 
 #### 12. Registrar el resultado de un match (solo el creador)
 
 ```
-POST http://localhost:8000/tournaments/5/matches/10/resultado
+POST /tournaments/5/matches/10/result
 ```
-
-Cambia `5` por el ID del torneo y `10` por el ID del match.
 
 ```json
 {
-  "ganador_id": 1
+  "winner_id": 1
 }
 ```
 
-`ganador_id` debe ser el `jugador_id` de uno de los dos participantes. Si pones un ID que no corresponde a ninguno de los dos, recibes error 400.
+`winner_id` debe ser uno de los dos participantes; si no, **400**.
 
-**Respuesta exitosa — 200:**
+**Respuesta — 200:**
 
 ```json
 {
   "match": {
     "id": 10,
-    "ronda": 1,
-    "posicion": 0,
-    "bracket_tipo": "ganadores",
-    "jugador1_id": 1,
-    "jugador2_id": 3,
-    "ganador_id": 1,
-    "estado": "Finalizado"
+    "tournament_id": 5,
+    "round": 1,
+    "position": 0,
+    "bracket_type": "ganadores",
+    "player1_id": 1,
+    "player2_id": 3,
+    "winner_id": 1,
+    "status": "Finalizado"
   },
-  "ganador_nuevo_elo": 1016,
-  "perdedor_nuevo_elo": 984,
-  "torneo_finalizado": false
+  "winner_new_elo": 1016,
+  "loser_new_elo": 984,
+  "tournament_finished": false
 }
 ```
 
-Cuando `torneo_finalizado` sea `true`, el torneo se cerró automáticamente.
+**Automático al registrar un resultado:**
+- El match pasa a `"Finalizado"` y se actualiza el ELO de ambos.
+- **Eliminación Sencilla:** el ganador avanza solo.
+- **Eliminación Doble:** el ganador sube en el bracket de ganadores; el perdedor baja al de perdedores.
+- **Swiss:** al cerrar todos los matches de una ronda, se genera la siguiente.
+- Cuando no hay más matches, el torneo pasa a `"Finalizado"` solo (`tournament_finished: true`).
 
-**Lo que ocurre automáticamente al registrar un resultado:**
-- El match pasa a `"Finalizado"` y el ELO de ambos jugadores se actualiza
-- **Eliminación Sencilla:** el ganador avanza al siguiente match automáticamente
-- **Eliminación Doble:** el ganador sube en el bracket de ganadores, el perdedor baja al bracket de perdedores automáticamente
-- **Swiss:** al terminar todos los matches de una ronda, la siguiente ronda se genera sola
-- Cuando no hay más matches, el torneo pasa a `"Finalizado"` solo
-
----
-
-#### 13. Ver el ranking del torneo
+#### 13. Ver el ranking
 
 ```
-GET http://localhost:8000/tournaments/5/ranking
+GET /tournaments/5/ranking
 ```
-
-Disponible en cualquier estado del torneo (no solo al finalizar). Cambia `5` por el ID del torneo.
-
-**Respuesta:**
 
 ```json
 {
-  "torneo_id": 5,
-  "tipo_eliminacion": "Swiss",
-  "estado": "Finalizado",
+  "tournament_id": 5,
+  "elimination_type": "Swiss",
+  "status": "Finalizado",
   "ranking": [
-    { "posicion": 1, "jugador_id": 1, "victorias": 4, "elo_global": 1048 },
-    { "posicion": 2, "jugador_id": 3, "victorias": 3, "elo_global": 1024 },
-    { "posicion": 3, "jugador_id": 2, "victorias": 1, "elo_global": 976 },
-    { "posicion": 4, "jugador_id": 4, "victorias": 0, "elo_global": 952 }
+    { "position": 1, "player_id": 1, "wins": 4, "global_elo": 1048 },
+    { "position": 2, "player_id": 3, "wins": 3, "global_elo": 1024 }
   ]
 }
 ```
 
----
-
-#### 14. Ver el historial de partidas de un jugador
+#### 14. Ver el historial de un jugador
 
 ```
-GET http://localhost:8000/tournaments/5/jugadores/1/historial
+GET /tournaments/5/players/1/history
 ```
 
-Cambia `5` por el ID del torneo y `1` por el ID del jugador. No lleva body. Disponible en cualquier estado del torneo.
+Devuelve una lista de matches (formato `MatchResponse`). Disponible en cualquier estado.
 
 ---
 
 ### Flujo completo de ejemplo (4 jugadores)
 
 ```
-Paso 1 — Registrar los 4 jugadores (repetir 4 veces con datos distintos)
-         POST /usuarios/registrar
-         body: { "nombre_usuario": "...", "correo_electronico": "...", "contrasena": "..." }
-
-Paso 2 — Login de cada jugador (repetir 4 veces)
-         POST /usuarios/login
-         body: { "identificador": "...", "contrasena": "..." }
-         → guardar el access_token y el id de cada jugador
-
-Paso 3 — Jugador 1 crea el torneo (con su token)
-         POST /tournaments
-         body: { "nombre": "Copa Arena", "tipo_eliminacion": "Swiss", "rondas": 3 }
-         → guardar el id del torneo (ej: 5)
-
-Paso 4 — Jugadores 2, 3 y 4 se inscriben (cada uno con su propio token)
-         POST /tournaments/register
-         body: { "torneo_id": 5 }
-
-Paso 5 — Jugador 1 genera el bracket (con su token)
-         POST /tournaments/5/bracket
-
-Paso 6 — Jugador 1 inicia el torneo (con su token)
-         POST /tournaments/5/iniciar
-
-Paso 7 — Ver los matches y anotar sus IDs
-         GET /tournaments/5/bracket
-
-Paso 8 — Registrar resultados (jugador 1 con su token, para cada match)
-         POST /tournaments/5/matches/10/resultado
-         body: { "ganador_id": 1 }
-         (repetir para cada match hasta que torneo_finalizado sea true)
-
-Paso 9 — Ver el ranking final
-         GET /tournaments/5/ranking
-
-Paso 10 — Ver historial de cualquier jugador
-          GET /tournaments/5/jugadores/1/historial
+1. Registrar 4 jugadores        POST /users
+2. Login de cada uno            POST /sessions          → guardar access_token e id
+3. Jugador 1 crea el torneo     POST /tournaments       → guardar tournament_id (ej: 5)
+4. Jugadores 2,3,4 se inscriben POST /tournaments/5/registrations   (cada uno con su token)
+5. Jugador 1 genera el bracket  POST /tournaments/5/bracket
+6. Jugador 1 inicia el torneo   POST /tournaments/5/start
+7. Ver matches y sus IDs        GET  /tournaments/5/bracket
+8. Registrar resultados         POST /tournaments/5/matches/{match_id}/result  body: { "winner_id": 1 }
+9. Ver ranking final            GET  /tournaments/5/ranking
+10. Ver historial               GET  /tournaments/5/players/1/history
 ```
 
 ---
 
 ### Errores comunes
 
-| Código | Qué significa | Causa más probable |
+| Código | Significado | Causa probable |
 |---|---|---|
-| `401` | No autenticado | Falta el header `Authorization` o el token es incorrecto |
-| `403` | Sin permiso | Intentas hacer algo que solo puede hacer el creador del torneo |
-| `404` | No existe | El `torneo_id`, `match_id` o `jugador_id` no existe |
-| `400` | Datos incorrectos | Jugador ya inscrito, torneo en estado incorrecto, ganador no es participante del match, rondas fuera de límite |
-| `409` | Ya existe | Nombre de usuario o correo ya registrado |
-| `422` | Validación fallida | Falta un campo, contraseña sin símbolo/número/letra, nombre de usuario con caracteres inválidos |
+| `401` | No autenticado | Falta `Authorization` o token inválido |
+| `403` | Sin permiso | Acción reservada al creador del torneo |
+| `404` | No existe | `tournament_id`, `match_id` o `player_id` inexistente |
+| `400` | Datos incorrectos | Ya inscrito, estado incorrecto, `winner_id` no participante, rondas fuera de límite |
+| `409` | Conflicto | `username` o `email` ya registrado |
+| `422` | Validación | Falta un campo o `password`/`username` no cumple las reglas |
 
 ---
 
-### Tipos de eliminación
+### Formatos de eliminación
 
-#### Eliminación Sencilla
-Una derrota = eliminado. El bracket se arma en potencia de 2 (2, 4, 8, 16...). Si hay 6 jugadores, el bracket es de 8 → 2 BYEs. Los mejores por ELO reciben los BYEs.
+- **Eliminación Sencilla:** una derrota elimina. Bracket en potencia de 2; los mejores por ELO reciben BYE.
+- **Eliminación Doble:** dos brackets (ganadores/perdedores); se elimina al perder dos veces; Gran Final entre el último de cada bracket.
+- **Round Robin:** todos contra todos (`n*(n-1)/2` partidas); desempate por ELO; sin BYEs.
+- **Swiss:** mismo número de rondas; ronda 1 por ELO, siguientes por victorias evitando repetir rivales; BYE si hay número impar.
 
-#### Eliminación Doble
-Necesitas perder dos veces para quedar eliminado. Hay dos brackets paralelos: ganadores (WB) y perdedores (LB). Al perder en WB bajas al LB. Al perder en LB quedas eliminado. El último del WB y el último del LB se enfrentan en la Gran Final. También usa potencia de 2 y BYEs igual que la sencilla.
+**BYE:** match con `player2_id = null` → se cierra solo (`winner_id = player1_id`, `status = "Finalizado"`), el ganador avanza sin jugar y no hay cambio de ELO.
 
-#### Round Robin
-Todos juegan contra todos. Con n jugadores hay `n*(n-1)/2` partidas, todas generadas desde el inicio. Gana quien más victorias acumule; empate desempata por ELO. Sin BYEs.
-
-#### Swiss
-Todos juegan el mismo número de rondas (configurable). Ronda 1: emparejados por ELO. Rondas siguientes: emparejados por victorias acumuladas, evitando repetir rivales. Las rondas se generan una a una al terminar la anterior. Si hay número impar de jugadores hay BYE.
-
-#### BYE — cómo actúa
-Un BYE es un match donde `jugador2 = null`. Ocurre cuando el número de jugadores no es potencia de 2 (Sencilla/Doble) o cuando hay número impar (Swiss).
-- El sistema lo cierra automáticamente: `ganador = jugador1`, `estado = "Finalizado"`
-- El ganador avanza al siguiente match sin jugar
-- No hay cambio de ELO — solo una victoria automática en el registro
-
----
-
-### Sistema ELO
-
-El ELO usa el algoritmo estándar con factor K adaptativo:
+### Sistema ELO (factor K adaptativo)
 
 | ELO actual | Factor K |
 |---|---|
-| < 1000 | 40 (aprende más rápido) |
-| 1000 – 2000 | 32 (estándar) |
-| > 2000 | 16 (cambia poco) |
+| < 1000 | 40 |
+| 1000 – 2000 | 32 |
+| > 2000 | 16 |
 
 ```
-E_ganador = 1 / (1 + 10 ^ ((ELO_perdedor - ELO_ganador) / 400))
-nuevo_ELO_ganador  = ELO_ganador  + K * (1 - E_ganador)
-nuevo_ELO_perdedor = ELO_perdedor + K * (0 - E_ganador)
+E_winner = 1 / (1 + 10 ^ ((loser_elo - winner_elo) / 400))
+winner_new_elo = winner_elo + K * (1 - E_winner)
+loser_new_elo  = loser_elo  + K * (0 - E_winner)
 ```
-
-Los BYEs no calculan ELO.
 
 ---
 
@@ -561,45 +493,59 @@ Los BYEs no calculan ELO.
 #### Ver datos de un jugador
 
 ```
-GET http://localhost:8000/jugadores/1
+GET /players/1
 ```
 
-Cambia `1` por el ID del jugador. No requiere token. Devuelve los datos públicos del jugador.
+No requiere token. Devuelve un `PlayerRead`.
 
----
-
-#### Actualizar contraseña de administrador
+#### Actualizar contraseña
 
 ```
-POST http://localhost:8000/admins/password
+POST /admins/password
 ```
 
 ```json
 {
-  "admin_id": 1,
   "password": "NuevaClave123!",
   "password_confirm": "NuevaClave123!"
 }
 ```
 
+El jugador objetivo se identifica por el token (`Authorization: Bearer`).
+
 #### Ver alertas de matches vencidos
 
 ```
-GET http://localhost:8000/alerts
+GET /alerts
+```
+
+```json
+{
+  "items": [
+    {
+      "id": 3,
+      "event_type": "match_overdue",
+      "message": "Enfrentamiento 7 vencido.",
+      "created_at": "2026-06-12",
+      "status": "nueva"
+    }
+  ]
+}
 ```
 
 #### Reconocer una alerta
 
 ```
-PATCH http://localhost:8000/alerts/3/ack
+PATCH /alerts/3/ack
 ```
 
-Cambia `3` por el ID de la alerta.
+Devuelve `{ "message": "acknowledged" }`.
 
 #### Health check
 
 ```
-GET http://localhost:8000/health
+GET /health
 ```
 
-Responde `{ "status": "ok" }` si el servidor está corriendo.
+Responde `{ "status": "ok" }`.
+</content>

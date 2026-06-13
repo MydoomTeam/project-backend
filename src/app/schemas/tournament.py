@@ -43,7 +43,7 @@ class TournamentDetailResponse(BaseModel):
 
 class RankingEntry(BaseModel):
     position: int
-    jugador_id: int
+    player_id: int
     wins: int
     global_elo: int
 

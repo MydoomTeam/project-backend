@@ -6,10 +6,10 @@ from app.models.tournament import TournamentModel
 from app.repositories.tournament_repository import TournamentRepository
 
 
-def _seed_player(db_session, jugador_id: int = 1):
-    if not db_session.query(Player).filter_by(id=jugador_id).first():
+def _seed_player(db_session, player_id: int = 1):
+    if not db_session.query(Player).filter_by(id=player_id).first():
         db_session.add(Player(
-            id=jugador_id,
+            id=player_id,
             username="test_creador",
             email="creador@test.com",
             password_hash="hash",

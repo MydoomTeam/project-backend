@@ -20,10 +20,10 @@ def get_alerts(
 ):
     return {"items": service.get_alerts()}
 
-@router.patch("/{id}/ack", response_model=AckResponse)
+@router.patch("/{alert_id}/ack", response_model=AckResponse)
 def acknowledge_alert(
-    id: int,
-    jugador_id: int = Depends(get_current_user),
+    alert_id: int,
+    player_id: int = Depends(get_current_user),
     service: AlertService = Depends(get_alert_service)
 ):
-    return service.acknowledge_alert(jugador_id, id)
+    return service.acknowledge_alert(player_id, alert_id)

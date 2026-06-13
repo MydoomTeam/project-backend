@@ -11,8 +11,8 @@ class TournamentRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_by_id(self, torneo_id: int) -> TournamentModel | None:
-        stmt = select(TournamentModel).where(TournamentModel.id == torneo_id)
+    def get_by_id(self, tournament_id: int) -> TournamentModel | None:
+        stmt = select(TournamentModel).where(TournamentModel.id == tournament_id)
         return self.db.execute(stmt).scalars().first()
 
     def get_active_by_name(self, name: str) -> TournamentModel | None:
@@ -26,11 +26,11 @@ class TournamentRepository:
         stmt = select(TournamentModel).where(TournamentModel.status == "Pendiente").order_by(TournamentModel.id.asc())
         return list(self.db.execute(stmt).scalars().all())
 
-    def get_detail_with_creator(self, torneo_id: int) -> tuple[TournamentModel, str, int] | None:
+    def get_detail_with_creator(self, tournament_id: int) -> tuple[TournamentModel, str, int] | None:
         stmt = (
             select(TournamentModel, Player.username)
             .join(Player, Player.id == TournamentModel.creator_id)
-            .where(TournamentModel.id == torneo_id)
+            .where(TournamentModel.id == tournament_id)
         )
         row = self.db.execute(stmt).first()
         if row is None:
@@ -40,19 +40,19 @@ class TournamentRepository:
             select(func.count())
             .select_from(RegistrationModel)
             .where(
-                RegistrationModel.tournament_id == torneo_id,
+                RegistrationModel.tournament_id == tournament_id,
                 RegistrationModel.status == "Confirmado",
             )
         )
         total = self.db.execute(count_stmt).scalar() or 0
         return tournament, creator_name, total
 
-    def get_confirmed_participants(self, torneo_id: int) -> list[tuple[int, int]]:
+    def get_confirmed_participants(self, tournament_id: int) -> list[tuple[int, int]]:
         stmt = (
             select(RegistrationModel.player_id, Player.global_elo)
             .join(Player, Player.id == RegistrationModel.player_id)
             .where(
-                RegistrationModel.tournament_id == torneo_id,
+                RegistrationModel.tournament_id == tournament_id,
                 RegistrationModel.status == "Confirmado",
             )
             .order_by(Player.global_elo.desc())

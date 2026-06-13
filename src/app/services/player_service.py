@@ -39,8 +39,8 @@ class PlayerService:
         self.repo = PlayerRepository(db)
         self.audit_repo = AuditLogRepository(db)
 
-    def get_player(self, jugador_id: int) -> Player | None:
-        return self.repo.get_by_id(jugador_id)
+    def get_player(self, player_id: int) -> Player | None:
+        return self.repo.get_by_id(player_id)
 
     def _validate_password(self, password: str) -> None:
         for is_valid, message in _PASSWORD_RULES:
@@ -50,7 +50,7 @@ class PlayerService:
                     detail={"error": "validation_error", "details": [message]},
                 )
 
-    def change_password(self, jugador_id: int, schema: PasswordUpdate):
+    def change_password(self, player_id: int, schema: PasswordUpdate):
         if schema.password != schema.password_confirm:
             raise HTTPException(
                 status_code=400,
@@ -59,7 +59,7 @@ class PlayerService:
 
         self._validate_password(schema.password)
 
-        player = self.repo.get_by_id(jugador_id)
+        player = self.repo.get_by_id(player_id)
         if player is None:
             raise HTTPException(status_code=404, detail="Jugador no encontrado")
 
@@ -67,13 +67,13 @@ class PlayerService:
         try:
             self.repo.update_password(player, password_hash)
             self.audit_repo.log_action(
-                actor_id=jugador_id,
+                actor_id=player_id,
                 action="UPDATE_PASSWORD",
                 change_description="Player",
             )
         except Exception:
             self.audit_repo.log_action(
-                actor_id=jugador_id,
+                actor_id=player_id,
                 action="UPDATE_PASSWORD_FAILED",
                 change_description="Player",
             )
