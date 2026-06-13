@@ -15,7 +15,7 @@ def get_alert_service(db: Session = Depends(get_db)) -> AlertService:
 
 @router.get("", response_model=AlertListResponse)
 def get_alerts(
-    _jugador_id: int = Depends(get_current_user),
+    _player_id: int = Depends(get_current_user),
     service: AlertService = Depends(get_alert_service),
 ):
     return {"items": service.get_alerts()}

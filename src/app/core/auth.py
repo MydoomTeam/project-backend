@@ -6,9 +6,12 @@ import hmac
 import json
 import time
 
-from fastapi import Header, HTTPException, status
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
+
+_bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def _sign(payload: bytes) -> str:
@@ -41,15 +44,16 @@ def resolve_user_id(token: str) -> int | None:
         return None
 
 
-def get_current_user(authorization: str | None = Header(default=None, alias="Authorization")) -> int:
-    if authorization is None or not authorization.startswith("Bearer "):
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> int:
+    if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario no autenticado",
         )
 
-    token = authorization.removeprefix("Bearer ").strip()
-    user_id = resolve_user_id(token)
+    user_id = resolve_user_id(credentials.credentials.strip())
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

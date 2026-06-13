@@ -23,7 +23,7 @@ router = APIRouter(tags=["tournaments"])
 @router.get("/tournaments/available", response_model=list[TournamentListResponse])
 def list_available_tournaments(
     db: Session = Depends(get_db),
-    _jugador_id: int = Depends(get_current_user),
+    _player_id: int = Depends(get_current_user),
 ) -> list[TournamentListResponse]:
     return TournamentService(db).get_available_tournaments()
 
@@ -54,7 +54,7 @@ def register_in_tournament(
 def get_tournament_detail(
     tournament_id: int,
     db: Session = Depends(get_db),
-    _jugador_id: int = Depends(get_current_user),
+    _player_id: int = Depends(get_current_user),
 ) -> TournamentDetailResponse:
     return TournamentService(db).get_tournament_detail(tournament_id)
 
@@ -63,7 +63,7 @@ def get_tournament_detail(
 def get_bracket(
     tournament_id: int,
     db: Session = Depends(get_db),
-    _jugador_id: int = Depends(get_current_user),
+    _player_id: int = Depends(get_current_user),
 ) -> BracketResponse:
     return MatchService(db).get_bracket(tournament_id)
 
@@ -113,7 +113,7 @@ def record_result(
 def get_ranking(
     tournament_id: int,
     db: Session = Depends(get_db),
-    _jugador_id: int = Depends(get_current_user),
+    _player_id: int = Depends(get_current_user),
 ) -> RankingResponse:
     return MatchService(db).get_ranking(tournament_id)
 
@@ -123,7 +123,7 @@ def get_player_history(
     tournament_id: int,
     player_id: int,
     db: Session = Depends(get_db),
-    _jugador_id: int = Depends(get_current_user),
+    _player_id: int = Depends(get_current_user),
 ) -> list[MatchResponse]:
     return MatchService(db).get_player_history(tournament_id, player_id)
 

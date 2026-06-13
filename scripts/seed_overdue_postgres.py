@@ -7,9 +7,9 @@ from app.domain.models.scheduled_match import ScheduledMatch
 def _create_overdue_match(db) -> ScheduledMatch:
     yesterday = date.today() - timedelta(days=1)
     overdue_match = ScheduledMatch(
-        estado_match="Pendiente",
-        marcador_detalle="0-0",
-        fecha_hora_programada=yesterday,
+        match_status="Pendiente",
+        score_detail="0-0",
+        scheduled_datetime=yesterday,
     )
     db.add(overdue_match)
     db.commit()
