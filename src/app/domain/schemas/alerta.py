@@ -3,7 +3,7 @@ from datetime import date
 from pydantic import BaseModel, ConfigDict
 
 
-class AlertaResponse(BaseModel):
+class AlertResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -13,8 +13,8 @@ class AlertaResponse(BaseModel):
     status: str
 
 
-class AlertaListResponse(BaseModel):
-    items: list[AlertaResponse]
+class AlertListResponse(BaseModel):
+    items: list[AlertResponse]
 
 
 class AckResponse(BaseModel):

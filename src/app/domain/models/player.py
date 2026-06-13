@@ -4,7 +4,7 @@ from sqlalchemy.schema import Identity
 from app.core.database import Base
 
 
-class Jugador(Base):
+class Player(Base):
     __tablename__ = "jugador"
 
     id = Column(Integer, Identity(), primary_key=True)

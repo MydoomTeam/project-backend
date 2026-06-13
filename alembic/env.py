@@ -11,10 +11,10 @@ from app.core.config import settings
 from app.core.database import Base
 # Stack canónico inglés (registra tournaments, matches, registrations, audit_logs)
 from app.models import audit_log, match, registration, tournament  # noqa: F401
-from app.domain.models.alerta import Alerta  # noqa: F401
+from app.domain.models.alert import Alert  # noqa: F401
 from app.domain.models.scheduled_match import ScheduledMatch  # noqa: F401
-from app.domain.models.historialelo import HistorialElo  # noqa: F401
-from app.domain.models.jugador import Jugador  # noqa: F401
+from app.domain.models.elo_history import EloHistory  # noqa: F401
+from app.domain.models.player import Player  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

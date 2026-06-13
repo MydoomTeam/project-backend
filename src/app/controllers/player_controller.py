@@ -3,23 +3,23 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import create_access_token
 from app.core.database import get_db
-from app.domain.schemas.jugador import JugadorRead, LoginRequest, LoginResponse, UsuarioRegistro
-from app.services.jugador_service import JugadorService
+from app.domain.schemas.jugador import PlayerRead, LoginRequest, LoginResponse, UserRegistration
+from app.services.player_service import PlayerService
 
 router = APIRouter(tags=["jugadores"])
 
 
-@router.get("/jugadores/{jugador_id}", response_model=JugadorRead)
+@router.get("/jugadores/{jugador_id}", response_model=PlayerRead)
 def get_player(jugador_id: int, db: Session = Depends(get_db)):
-    jugador = JugadorService(db).get_player(jugador_id)
+    jugador = PlayerService(db).get_player(jugador_id)
     if jugador is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jugador no encontrado")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player no encontrado")
     return jugador
 
 
-@router.post("/usuarios/registrar", response_model=JugadorRead, status_code=status.HTTP_201_CREATED)
-def register_user(payload: UsuarioRegistro, db: Session = Depends(get_db)):
-    outcome = JugadorService(db).register_user(payload)
+@router.post("/usuarios/registrar", response_model=PlayerRead, status_code=status.HTTP_201_CREATED)
+def register_user(payload: UserRegistration, db: Session = Depends(get_db)):
+    outcome = PlayerService(db).register_user(payload)
     if outcome.is_duplicate:
         errores = []
         if outcome.duplicate_username:
@@ -32,10 +32,10 @@ def register_user(payload: UsuarioRegistro, db: Session = Depends(get_db)):
 
 @router.post("/usuarios/login", response_model=LoginResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    jugador = JugadorService(db).login(payload)
+    jugador = PlayerService(db).login(payload)
     if jugador is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
     return LoginResponse(
         access_token=create_access_token(jugador.id),
-        jugador=JugadorRead.model_validate(jugador),
+        jugador=PlayerRead.model_validate(jugador),
     )

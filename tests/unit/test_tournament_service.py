@@ -71,7 +71,7 @@ def build_payload(
     )
 
 
-class TestCrearTorneo(unittest.TestCase):
+class TestCreateTournament(unittest.TestCase):
     def setUp(self):
         self.original_repository = tournament_service_module.TournamentRepository
         self.original_audit_repository = tournament_service_module.AuditLogRepository
@@ -82,7 +82,7 @@ class TestCrearTorneo(unittest.TestCase):
         tournament_service_module.AuditLogRepository = self.original_audit_repository
         tournament_service_module.datetime = self.original_datetime
 
-    def test_crear_torneo_exitoso_persiste_estado_pendiente_y_auditoria(self):
+    def test_successful_tournament_creation_persists_pending_status_and_audit(self):
         fake_repo = FakeTournamentRepository()
         fake_audit = FakeAuditLogRepository()
         tournament_service_module.TournamentRepository = lambda db: fake_repo
@@ -104,7 +104,7 @@ class TestCrearTorneo(unittest.TestCase):
         self.assertEqual(fake_audit.recorded_date, datetime(2026, 6, 7, 12, 0, 0))
         self.assertEqual(fake_audit.recorded_user_id, 7)
 
-    def test_crear_torneo_rechaza_eliminacion_sencilla_con_rondas_excesivas(self):
+    def test_tournament_creation_rejects_single_elimination_with_excessive_rounds(self):
         fake_repo = FakeTournamentRepository()
         tournament_service_module.TournamentRepository = lambda db: fake_repo
         tournament_service_module.AuditLogRepository = lambda db: FakeAuditLogRepository()
@@ -120,7 +120,7 @@ class TestCrearTorneo(unittest.TestCase):
         self.assertEqual(context.exception.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("admite máximo", str(context.exception.detail))
 
-    def test_crear_torneo_rechaza_nombre_duplicado(self):
+    def test_tournament_creation_rejects_duplicate_name(self):
         fake_repo = FakeTournamentRepository(existing_tournament=DummyTournament())
         tournament_service_module.TournamentRepository = lambda db: fake_repo
         tournament_service_module.AuditLogRepository = lambda db: FakeAuditLogRepository()
@@ -133,19 +133,19 @@ class TestCrearTorneo(unittest.TestCase):
         self.assertEqual(context.exception.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("Ya existe un torneo activo", str(context.exception.detail))
 
-    def test_esquema_rechaza_nombre_vacio(self):
+    def test_schema_rejects_empty_name(self):
         with self.assertRaises(ValidationError):
             TournamentCreate.model_validate(
                 {"nombre": "", "tipo_eliminacion": "Doble Eliminación", "rondas": 5}
             )
 
-    def test_esquema_rechaza_tipo_eliminacion_vacio(self):
+    def test_schema_rejects_empty_elimination_type(self):
         with self.assertRaises(ValidationError):
             TournamentCreate.model_validate(
                 {"nombre": "Torneo Unitario", "tipo_eliminacion": "", "rondas": 5}
             )
 
-    def test_esquema_rechaza_rondas_no_validas(self):
+    def test_schema_rejects_invalid_rounds(self):
         with self.assertRaises(ValidationError):
             TournamentCreate.model_validate(
                 {"nombre": "Torneo Unitario", "tipo_eliminacion": "Doble Eliminación", "rondas": 0}

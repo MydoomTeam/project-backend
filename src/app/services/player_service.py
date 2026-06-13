@@ -6,10 +6,10 @@ import bcrypt
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.domain.models.jugador import Jugador
-from app.domain.schemas.jugador import LoginRequest, PasswordUpdate, UsuarioRegistro
+from app.domain.models.player import Player
+from app.domain.schemas.jugador import LoginRequest, PasswordUpdate, UserRegistration
 from app.repositories.audit_log_repository import AuditLogRepository
-from app.repositories.jugador_repository import JugadorRepository
+from app.repositories.player_repository import PlayerRepository
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ _PASSWORD_RULES = [
 class RegistrationOutcome:
     """Resultado explícito del registro: jugador creado o conflicto de duplicados."""
 
-    jugador: Jugador | None = None
+    jugador: Player | None = None
     duplicate_username: bool = False
     duplicate_email: bool = False
 
@@ -34,12 +34,12 @@ class RegistrationOutcome:
         return self.duplicate_username or self.duplicate_email
 
 
-class JugadorService:
+class PlayerService:
     def __init__(self, db: Session):
-        self.repo = JugadorRepository(db)
+        self.repo = PlayerRepository(db)
         self.audit_repo = AuditLogRepository(db)
 
-    def get_player(self, jugador_id: int) -> Jugador | None:
+    def get_player(self, jugador_id: int) -> Player | None:
         return self.repo.get_by_id(jugador_id)
 
     def _validate_password(self, password: str) -> None:
@@ -61,7 +61,7 @@ class JugadorService:
 
         jugador = self.repo.get_by_id(jugador_id)
         if jugador is None:
-            raise HTTPException(status_code=404, detail="Jugador no encontrado")
+            raise HTTPException(status_code=404, detail="Player no encontrado")
 
         password_hash = self._hash_password(schema.password)
         try:
@@ -69,13 +69,13 @@ class JugadorService:
             self.audit_repo.log_action(
                 actor_id=jugador_id,
                 accion="UPDATE_PASSWORD",
-                descripcion_cambio="Jugador",
+                descripcion_cambio="Player",
             )
         except Exception:
             self.audit_repo.log_action(
                 actor_id=jugador_id,
                 accion="UPDATE_PASSWORD_FAILED",
-                descripcion_cambio="Jugador",
+                descripcion_cambio="Player",
             )
             raise HTTPException(
                 status_code=500,
@@ -87,14 +87,14 @@ class JugadorService:
     def _hash_password(self, password: str) -> str:
         return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
 
-    def register_user(self, data: UsuarioRegistro) -> RegistrationOutcome:
+    def register_user(self, data: UserRegistration) -> RegistrationOutcome:
         duplicados = self.repo.get_duplicates(data.nombre_usuario, data.correo_electronico)
         if duplicados["usuario"] or duplicados["correo"]:
             return RegistrationOutcome(
                 duplicate_username=duplicados["usuario"],
                 duplicate_email=duplicados["correo"],
             )
-        jugador = Jugador(
+        jugador = Player(
             id=self.repo.next_id(),
             nombre_usuario=data.nombre_usuario,
             correo_electronico=data.correo_electronico,
@@ -107,7 +107,7 @@ class JugadorService:
         logger.info(f"Usuario creado {creado.nombre_usuario}")
         return RegistrationOutcome(jugador=creado)
 
-    def _verificar_password(self, password: str, almacenado: str | None) -> bool:
+    def _verify_password(self, password: str, almacenado: str | None) -> bool:
         # Verificación defensiva: hash vacío/None/no-bcrypt -> False, nunca lanza.
         # (El jugador de sistema tiene contrasena_hash="" y no es autenticable.)
         if not almacenado:
@@ -121,6 +121,6 @@ class JugadorService:
         jugador = self.repo.get_by_login(data.identificador)
         if jugador is None:
             return None
-        if not self._verificar_password(data.contrasena, jugador.contrasena_hash):
+        if not self._verify_password(data.contrasena, jugador.contrasena_hash):
             return None
         return self.repo.update_last_access(jugador)

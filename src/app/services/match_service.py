@@ -5,10 +5,10 @@ from sqlalchemy.orm import Session
 
 from app.models.match import MatchModel
 from app.repositories.audit_log_repository import AuditLogRepository
-from app.repositories.jugador_repository import JugadorRepository
+from app.repositories.player_repository import PlayerRepository
 from app.repositories.match_repository import MatchRepository
 from app.repositories.tournament_repository import TournamentRepository
-from app.schemas.match import MatchResponse, ResultadoResponse
+from app.schemas.match import MatchResponse, ResultResponse
 from app.schemas.tournament import BracketResponse, RankingEntry, RankingResponse
 
 _ELO_SCALE = 400
@@ -53,7 +53,7 @@ class MatchService:
     def __init__(self, db: Session):
         self.torneo_repo  = TournamentRepository(db)
         self.match_repo   = MatchRepository(db)
-        self.jugador_repo = JugadorRepository(db)
+        self.jugador_repo = PlayerRepository(db)
         self.audit_repo   = AuditLogRepository(db)
 
     def get_ranking(self, torneo_id: int) -> RankingResponse:
@@ -186,7 +186,7 @@ class MatchService:
 
     def record_result(
         self, torneo_id: int, match_id: int, ganador_id: int, admin_id: int
-    ) -> ResultadoResponse:
+    ) -> ResultResponse:
         torneo = self._get_tournament_in_progress(torneo_id, admin_id)
         match = self._get_playable_match(torneo_id, match_id)
         self._validate_winner(match, ganador_id)
@@ -208,7 +208,7 @@ class MatchService:
         self.match_repo.commit()
         self.match_repo.refresh(match)
 
-        return ResultadoResponse(
+        return ResultResponse(
             match=MatchResponse.model_validate(match),
             ganador_nuevo_elo=nuevo_elo_g,
             perdedor_nuevo_elo=nuevo_elo_p,

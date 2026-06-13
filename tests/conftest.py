@@ -35,12 +35,12 @@ database.SessionLocal = sessionmaker(
 
 from app.core.database import Base, get_db
 from app.core.auth import get_current_user
-from app.domain.models.alerta import Alerta  # noqa: F401
+from app.domain.models.alert import Alert  # noqa: F401
 from app.domain.models.scheduled_match import ScheduledMatch  # noqa: F401
-from app.domain.models.historialelo import HistorialElo  # noqa: F401
-from app.domain.models.jugador import Jugador  # noqa: F401
+from app.domain.models.elo_history import EloHistory  # noqa: F401
+from app.domain.models.player import Player  # noqa: F401
 from app.domain.constants import SYSTEM_ADMIN_ID
-from app.repositories.jugador_repository import JugadorRepository
+from app.repositories.player_repository import PlayerRepository
 from app.main import app
 
 TestingSessionLocal = database.SessionLocal
@@ -50,9 +50,9 @@ TestingSessionLocal = database.SessionLocal
 def db_session():
     Base.metadata.create_all(bind=test_engine)
     session = TestingSessionLocal()
-    # Actor de sistema (Jugador) para satisfacer audit_logs.usuario_id -> jugador.id,
+    # Actor de sistema (Player) para satisfacer audit_logs.usuario_id -> jugador.id,
     # equivalente a lo que hace el lifespan de la app en producción (ADR-005 5a).
-    JugadorRepository(session).ensure_system_user(SYSTEM_ADMIN_ID)
+    PlayerRepository(session).ensure_system_user(SYSTEM_ADMIN_ID)
     session.commit()
     yield session
     session.close()

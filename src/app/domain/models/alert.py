@@ -4,7 +4,7 @@ from sqlalchemy.schema import Identity
 from app.core.database import Base
 
 
-class Alerta(Base):
+class Alert(Base):
     __tablename__ = "alerta"
 
     id = Column(Integer, Identity(), primary_key=True)

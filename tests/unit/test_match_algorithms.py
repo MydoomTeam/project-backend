@@ -3,40 +3,40 @@ import unittest
 from app.services.match_service import MatchService
 
 
-class TestSiguientePotenciaDeDos(unittest.TestCase):
-    def test_valor_ya_es_potencia_de_dos(self):
+class TestNextPowerOfTwo(unittest.TestCase):
+    def test_value_already_power_of_two(self):
         self.assertEqual(MatchService._next_power_of_two(8), 8)
 
-    def test_valor_entre_potencias_sube_a_la_siguiente(self):
+    def test_value_between_powers_rounds_up(self):
         self.assertEqual(MatchService._next_power_of_two(5), 8)
 
-    def test_valor_minimo_devuelve_uno(self):
+    def test_minimum_value_returns_one(self):
         self.assertEqual(MatchService._next_power_of_two(1), 1)
 
 
-class TestCalcularNuevoElo(unittest.TestCase):
-    def test_igual_habilidad_cambio_simetrico(self):
+class TestComputeNewElo(unittest.TestCase):
+    def test_equal_skill_symmetric_change(self):
         nuevo_g, nuevo_p = MatchService._compute_new_elo(1000, 1000)
         self.assertEqual(nuevo_g - 1000, -(nuevo_p - 1000))
 
-    def test_ganador_con_menor_elo_recibe_mas_puntos_que_favorito(self):
+    def test_lower_elo_winner_gains_more_than_favorite(self):
         nuevo_g_debil, _ = MatchService._compute_new_elo(800, 1600)
         nuevo_g_fuerte, _ = MatchService._compute_new_elo(1600, 800)
         self.assertGreater(nuevo_g_debil - 800, nuevo_g_fuerte - 1600)
 
 
-class TestConstruirBracketCompleto(unittest.TestCase):
+class TestBuildCompleteBracket(unittest.TestCase):
     def _service(self):
         return object.__new__(MatchService)
 
-    def test_cuatro_jugadores_genera_todas_las_rondas(self):
+    def test_four_players_generates_all_rounds(self):
         participantes = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
         matches = self._service()._build_full_bracket(1, participantes)
 
         self.assertEqual({m.ronda for m in matches}, {1, 2})
         self.assertEqual(len(matches), 3)
 
-    def test_cinco_jugadores_byes_asignados_a_top_seeds(self):
+    def test_five_players_byes_assigned_to_top_seeds(self):
         participantes = [(1, 2000), (2, 1800), (3, 1600), (4, 1400), (5, 1200)]
         matches = self._service()._build_full_bracket(1, participantes)
 
@@ -44,7 +44,7 @@ class TestConstruirBracketCompleto(unittest.TestCase):
         self.assertEqual(len(byes), 3)
         self.assertEqual({m.jugador1_id for m in byes}, {1, 2, 3})
 
-    def test_rondas_futuras_inician_sin_jugadores_asignados(self):
+    def test_future_rounds_start_without_assigned_players(self):
         participantes = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
         matches = self._service()._build_full_bracket(1, participantes)
 
@@ -52,11 +52,11 @@ class TestConstruirBracketCompleto(unittest.TestCase):
         self.assertTrue(all(m.jugador1_id is None and m.jugador2_id is None for m in ronda2))
 
 
-class TestConstruirRoundRobin(unittest.TestCase):
+class TestBuildRoundRobin(unittest.TestCase):
     def _service(self):
         return object.__new__(MatchService)
 
-    def test_tres_jugadores_generan_tres_matches(self):
+    def test_three_players_generate_three_matches(self):
         participantes = [(1, 1500), (2, 1300), (3, 1100)]
         matches = self._service()._build_round_robin(1, participantes)
 
@@ -65,11 +65,11 @@ class TestConstruirRoundRobin(unittest.TestCase):
         self.assertEqual(pares, {(1, 2), (1, 3), (2, 3)})
 
 
-class TestConstruirEliminacionDoble(unittest.TestCase):
+class TestBuildDoubleElimination(unittest.TestCase):
     def _service(self):
         return object.__new__(MatchService)
 
-    def test_cuatro_jugadores_genera_brackets_ganadores_perdedores_y_gran_final(self):
+    def test_four_players_generates_winners_losers_and_grand_final_brackets(self):
         participantes = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
         matches = self._service()._build_double_elimination(1, participantes)
 
@@ -78,28 +78,28 @@ class TestConstruirEliminacionDoble(unittest.TestCase):
         self.assertIn("perdedores", tipos)
         self.assertIn("gran_final", tipos)
 
-    def test_cuatro_jugadores_bracket_ganadores_tiene_tres_matches(self):
+    def test_four_players_winners_bracket_has_three_matches(self):
         participantes = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
         matches = self._service()._build_double_elimination(1, participantes)
 
         ganadores = [m for m in matches if m.bracket_tipo == "ganadores"]
         self.assertEqual(len(ganadores), 3)
 
-    def test_cuatro_jugadores_bracket_perdedores_tiene_dos_matches(self):
+    def test_four_players_losers_bracket_has_two_matches(self):
         participantes = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
         matches = self._service()._build_double_elimination(1, participantes)
 
         perdedores = [m for m in matches if m.bracket_tipo == "perdedores"]
         self.assertEqual(len(perdedores), 2)
 
-    def test_exactamente_un_match_gran_final(self):
+    def test_exactly_one_grand_final_match(self):
         participantes = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
         matches = self._service()._build_double_elimination(1, participantes)
 
         gran_final = [m for m in matches if m.bracket_tipo == "gran_final"]
         self.assertEqual(len(gran_final), 1)
 
-    def test_gran_final_inicia_sin_jugadores(self):
+    def test_grand_final_starts_without_players(self):
         participantes = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
         matches = self._service()._build_double_elimination(1, participantes)
 
@@ -107,42 +107,42 @@ class TestConstruirEliminacionDoble(unittest.TestCase):
         self.assertIsNone(gf.jugador1_id)
         self.assertIsNone(gf.jugador2_id)
 
-    def test_ruta_perdedor_primera_ronda_primera_posicion(self):
+    def test_loser_path_first_round_first_position(self):
         lb_ronda, lb_pos, lb_slot = MatchService._loser_route_to_losers(1, 0)
         self.assertEqual(lb_ronda, 1)
         self.assertEqual(lb_pos, 0)
         self.assertEqual(lb_slot, 0)
 
-    def test_ruta_perdedor_primera_ronda_segunda_posicion(self):
+    def test_loser_path_first_round_second_position(self):
         lb_ronda, lb_pos, lb_slot = MatchService._loser_route_to_losers(1, 1)
         self.assertEqual(lb_ronda, 1)
         self.assertEqual(lb_pos, 0)
         self.assertEqual(lb_slot, 1)
 
-    def test_ruta_perdedor_segunda_ronda_va_a_lb_ronda_dos(self):
+    def test_loser_path_second_round_goes_to_lb_round_two(self):
         lb_ronda, lb_pos, lb_slot = MatchService._loser_route_to_losers(2, 0)
         self.assertEqual(lb_ronda, 2)
         self.assertEqual(lb_pos, 0)
         self.assertEqual(lb_slot, 1)
 
-    def test_ruta_perdedor_tercera_ronda_va_a_lb_ronda_cuatro(self):
+    def test_loser_path_third_round_goes_to_lb_round_four(self):
         lb_ronda, lb_pos, lb_slot = MatchService._loser_route_to_losers(3, 0)
         self.assertEqual(lb_ronda, 4)
         self.assertEqual(lb_pos, 0)
         self.assertEqual(lb_slot, 1)
 
 
-class TestConstruirSwiss(unittest.TestCase):
+class TestBuildSwiss(unittest.TestCase):
     def _service(self):
         return object.__new__(MatchService)
 
-    def test_cuatro_jugadores_genera_dos_matches_en_ronda_uno(self):
+    def test_four_players_generates_two_matches_in_round_one(self):
         participantes = [(1, 1600), (2, 1500), (3, 1400), (4, 1300)]
         matches = self._service()._build_swiss_round1(1, participantes)
 
         self.assertEqual(len(matches), 2)
 
-    def test_jugadores_de_mayor_elo_emparejados_primero(self):
+    def test_higher_elo_players_paired_first(self):
         participantes = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
         matches = self._service()._build_swiss_round1(1, participantes)
 
@@ -150,7 +150,7 @@ class TestConstruirSwiss(unittest.TestCase):
         self.assertIn(1, (primer_match.jugador1_id, primer_match.jugador2_id))
         self.assertIn(2, (primer_match.jugador1_id, primer_match.jugador2_id))
 
-    def test_cinco_jugadores_genera_bye_para_ultimo(self):
+    def test_five_players_generates_bye_for_last(self):
         participantes = [(1, 2000), (2, 1800), (3, 1600), (4, 1400), (5, 1200)]
         matches = self._service()._build_swiss_round1(1, participantes)
 
@@ -158,7 +158,7 @@ class TestConstruirSwiss(unittest.TestCase):
         self.assertEqual(len(byes), 1)
         self.assertEqual(byes[0].estado, "Finalizado")
 
-    def test_emparejamiento_evita_rematches(self):
+    def test_pairing_avoids_rematches(self):
         pares_jugados = {(1, 2)}
         jugadores = [1, 2, 3, 4]
         matches = MatchService._pair_swiss(1, ronda=2, jugadores=jugadores, pares_jugados=pares_jugados)
@@ -168,7 +168,7 @@ class TestConstruirSwiss(unittest.TestCase):
                 par = (min(m.jugador1_id, m.jugador2_id), max(m.jugador1_id, m.jugador2_id))
                 self.assertNotIn(par, pares_jugados)
 
-    def test_todos_los_matches_swiss_inician_en_curso(self):
+    def test_all_swiss_matches_start_in_progress(self):
         participantes = [(1, 1600), (2, 1500), (3, 1400), (4, 1300)]
         matches = self._service()._build_swiss_round1(1, participantes)
 

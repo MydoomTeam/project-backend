@@ -3,18 +3,18 @@ from unittest.mock import patch
 import pytest
 from fastapi import HTTPException
 
-from app.domain.models.jugador import Jugador
+from app.domain.models.player import Player
 from app.domain.schemas.jugador import PasswordUpdate
 from app.models.audit_log import AuditLogModel
-from app.repositories.jugador_repository import JugadorRepository
-from app.services.jugador_service import JugadorService
+from app.repositories.player_repository import PlayerRepository
+from app.services.player_service import PlayerService
 
 
 def _password_update(password="Password123", confirm="Password123") -> PasswordUpdate:
     return PasswordUpdate(password=password, password_confirm=confirm)
 
 
-def test_admin_password_valida(client, db_session):
+def test_admin_password_valid(client, db_session):
     response = client.post(
         "/admins/password",
         json={"password": "Password123", "password_confirm": "Password123"},
@@ -24,7 +24,7 @@ def test_admin_password_valida(client, db_session):
     assert response.json() == {"message": "password_updated"}
 
     # El actor proviene de get_current_user (jugador autenticado = 1), no del stub.
-    jugador = db_session.query(Jugador).filter_by(id=1).first()
+    jugador = db_session.query(Player).filter_by(id=1).first()
     assert jugador.contrasena_hash.startswith("$2")
     audit = (
         db_session.query(AuditLogModel)
@@ -34,7 +34,7 @@ def test_admin_password_valida(client, db_session):
     assert audit.usuario_id == 1
 
 
-def test_admin_password_y_confirmacion_diferentes(client, db_session):
+def test_admin_password_and_confirmation_differ(client, db_session):
     response = client.post(
         "/admins/password",
         json={"password": "Password123", "password_confirm": "Different123"},
@@ -44,7 +44,7 @@ def test_admin_password_y_confirmacion_diferentes(client, db_session):
     assert response.json()["detail"]["error"] == "validation_error"
 
 
-def test_admin_password_debil(client, db_session):
+def test_admin_password_weak(client, db_session):
     response = client.post(
         "/admins/password",
         json={"password": "Pwd1", "password_confirm": "Pwd1"},
@@ -60,8 +60,8 @@ def test_admin_password_debil(client, db_session):
     assert response.json()["detail"]["details"]
 
 
-def test_admin_password_fallo_bd(client, db_session):
-    with patch.object(JugadorRepository, "update_password", side_effect=Exception("db error")):
+def test_admin_password_db_failure(client, db_session):
+    with patch.object(PlayerRepository, "update_password", side_effect=Exception("db error")):
         response = client.post(
             "/admins/password",
             json={"password": "Password123", "password_confirm": "Password123"},
@@ -76,8 +76,8 @@ def test_admin_password_fallo_bd(client, db_session):
     )
 
 
-def test_cambiar_password_actor_inexistente(db_session):
-    service = JugadorService(db_session)
+def test_change_password_nonexistent_actor(db_session):
+    service = PlayerService(db_session)
 
     with pytest.raises(HTTPException) as ctx:
         service.change_password(9999, _password_update())

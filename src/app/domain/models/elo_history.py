@@ -4,7 +4,7 @@ from sqlalchemy.schema import Identity
 from app.core.database import Base
 
 
-class HistorialElo(Base):
+class EloHistory(Base):
     __tablename__ = "historialelo"
 
     id = Column(Integer, Identity(), primary_key=True)

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.core.database import get_db
-from app.schemas.match import MatchResponse, ResultadoRequest, ResultadoResponse
+from app.schemas.match import MatchResponse, ResultRequest, ResultResponse
 from app.schemas.registration import RegistrationCreate, RegistrationResponse
 from app.schemas.tournament import (
     BracketResponse,
@@ -92,16 +92,16 @@ def start_tournament(
 
 @router.post(
     "/tournaments/{torneo_id}/matches/{match_id}/resultado",
-    response_model=ResultadoResponse,
+    response_model=ResultResponse,
     status_code=status.HTTP_200_OK,
 )
 def record_result(
     torneo_id: int,
     match_id: int,
-    payload: ResultadoRequest,
+    payload: ResultRequest,
     db: Session = Depends(get_db),
     admin_id: int = Depends(get_current_user),
-) -> ResultadoResponse:
+) -> ResultResponse:
     return MatchService(db).record_result(torneo_id, match_id, payload.ganador_id, admin_id)
 
 

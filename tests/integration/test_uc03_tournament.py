@@ -1,14 +1,14 @@
 from datetime import date
 from unittest.mock import patch
 
-from app.domain.models.jugador import Jugador
+from app.domain.models.player import Player
 from app.models.tournament import TournamentModel
 from app.repositories.tournament_repository import TournamentRepository
 
 
 def _seed_jugador(db_session, jugador_id: int = 1):
-    if not db_session.query(Jugador).filter_by(id=jugador_id).first():
-        db_session.add(Jugador(
+    if not db_session.query(Player).filter_by(id=jugador_id).first():
+        db_session.add(Player(
             id=jugador_id,
             nombre_usuario="test_creador",
             correo_electronico="creador@test.com",
@@ -30,7 +30,7 @@ def _torneo_payload(**overrides):
     return payload
 
 
-def test_crear_torneo_valido(client):
+def test_create_tournament_valid(client):
     response = client.post("/tournaments", json=_torneo_payload())
 
     assert response.status_code == 201
@@ -41,7 +41,7 @@ def test_crear_torneo_valido(client):
     assert data["rondas"] == 3
 
 
-def test_crear_torneo_campo_faltante(client):
+def test_create_tournament_missing_field(client):
     payload = _torneo_payload()
     del payload["nombre"]
 
@@ -50,13 +50,13 @@ def test_crear_torneo_campo_faltante(client):
     assert response.json()["detail"]["error"] == "validation_error"
 
 
-def test_crear_torneo_nombre_vacio(client):
+def test_create_tournament_empty_name(client):
     response = client.post("/tournaments", json=_torneo_payload(nombre=""))
     assert response.status_code == 422
     assert response.json()["detail"]["error"] == "validation_error"
 
 
-def test_crear_torneo_rondas_invalidas(client):
+def test_create_tournament_invalid_rounds(client):
     response = client.post(
         "/tournaments",
         json=_torneo_payload(rondas=0),
@@ -65,7 +65,7 @@ def test_crear_torneo_rondas_invalidas(client):
     assert response.json()["detail"]["error"] == "validation_error"
 
 
-def test_crear_torneo_rondas_exceden_maximo(client):
+def test_create_tournament_rounds_exceed_maximum(client):
     response = client.post(
         "/tournaments",
         json=_torneo_payload(tipo_eliminacion="Eliminación Sencilla", rondas=10),
@@ -73,7 +73,7 @@ def test_crear_torneo_rondas_exceden_maximo(client):
     assert response.status_code == 400
 
 
-def test_crear_torneo_tipo_eliminacion_invalido(client):
+def test_create_tournament_invalid_elimination_type(client):
     response = client.post(
         "/tournaments",
         json=_torneo_payload(tipo_eliminacion="invalido"),
@@ -82,14 +82,14 @@ def test_crear_torneo_tipo_eliminacion_invalido(client):
     assert response.status_code == 400
 
 
-def test_crear_torneo_fallo_bd(client):
+def test_create_tournament_db_failure(client):
     with patch.object(TournamentRepository, "save", side_effect=Exception("db error")):
         response = client.post("/tournaments", json=_torneo_payload())
 
     assert response.status_code == 500
 
 
-def test_get_torneo_por_id(client, db_session):
+def test_get_tournament_by_id(client, db_session):
     _seed_jugador(db_session)
     created = client.post("/tournaments", json=_torneo_payload()).json()
 
@@ -103,6 +103,6 @@ def test_get_torneo_por_id(client, db_session):
     assert data["total_participantes"] == 0
 
 
-def test_get_torneo_no_existe(client):
+def test_get_tournament_not_found(client):
     response = client.get("/tournaments/9999")
     assert response.status_code == 404

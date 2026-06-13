@@ -13,7 +13,7 @@ class PasswordUpdate(BaseModel):
     password_confirm: str
 
 
-class JugadorRead(BaseModel):
+class PlayerRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -24,7 +24,7 @@ class JugadorRead(BaseModel):
     elo_global: int
 
 
-class UsuarioRegistro(BaseModel):
+class UserRegistration(BaseModel):
     nombre_usuario: str = Field(min_length=3, max_length=30)
     correo_electronico: EmailStr
     contrasena: str = Field(min_length=8)
@@ -74,4 +74,4 @@ class LoginResponse(BaseModel):
 
     access_token: str
     token_type: str = "bearer"
-    jugador: JugadorRead
+    jugador: PlayerRead

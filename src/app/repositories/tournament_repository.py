@@ -1,7 +1,7 @@
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.domain.models.jugador import Jugador
+from app.domain.models.player import Player
 from app.models.match import MatchModel
 from app.models.registration import RegistrationModel
 from app.models.tournament import TournamentModel
@@ -28,8 +28,8 @@ class TournamentRepository:
 
     def get_detail_with_creator(self, torneo_id: int) -> tuple[TournamentModel, str, int] | None:
         stmt = (
-            select(TournamentModel, Jugador.nombre_usuario)
-            .join(Jugador, Jugador.id == TournamentModel.creador_id)
+            select(TournamentModel, Player.nombre_usuario)
+            .join(Player, Player.id == TournamentModel.creador_id)
             .where(TournamentModel.id == torneo_id)
         )
         row = self.db.execute(stmt).first()
@@ -49,13 +49,13 @@ class TournamentRepository:
 
     def get_confirmed_participants(self, torneo_id: int) -> list[tuple[int, int]]:
         stmt = (
-            select(RegistrationModel.jugador_id, Jugador.elo_global)
-            .join(Jugador, Jugador.id == RegistrationModel.jugador_id)
+            select(RegistrationModel.jugador_id, Player.elo_global)
+            .join(Player, Player.id == RegistrationModel.jugador_id)
             .where(
                 RegistrationModel.torneo_id == torneo_id,
                 RegistrationModel.estado == "Confirmado",
             )
-            .order_by(Jugador.elo_global.desc())
+            .order_by(Player.elo_global.desc())
         )
         rows = self.db.execute(stmt).all()
         return [(int(row.jugador_id), int(row.elo_global)) for row in rows]

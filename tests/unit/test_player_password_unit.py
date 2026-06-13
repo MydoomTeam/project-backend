@@ -5,11 +5,11 @@ import bcrypt
 from fastapi import HTTPException
 
 from app.domain.schemas.jugador import PasswordUpdate
-from app.services.jugador_service import JugadorService
+from app.services.player_service import PlayerService
 
 
-def _service_with_mocks() -> JugadorService:
-    service = object.__new__(JugadorService)  # sin __init__ (sin DB real)
+def _service_with_mocks() -> PlayerService:
+    service = object.__new__(PlayerService)  # sin __init__ (sin DB real)
     service.repo = Mock()
     service.audit_repo = Mock()
     return service
@@ -19,7 +19,7 @@ def _update(password: str, confirm: str | None = None) -> PasswordUpdate:
     return PasswordUpdate(password=password, password_confirm=confirm if confirm is not None else password)
 
 
-class TestJugadorPasswordValidation(unittest.TestCase):
+class TestPlayerPasswordValidation(unittest.TestCase):
     def setUp(self):
         self.service = _service_with_mocks()
 
@@ -54,25 +54,25 @@ class TestJugadorPasswordValidation(unittest.TestCase):
             self.fail("Valid password should not raise HTTPException")
 
 
-class TestJugadorCambiarPassword(unittest.TestCase):
+class TestPlayerChangePassword(unittest.TestCase):
     def setUp(self):
         self.service = _service_with_mocks()
 
-    def test_cambiar_password_mismatch_confirmation(self):
+    def test_change_password_mismatch_confirmation(self):
         schema = _update("ValidPass123!", confirm="DifferentPass123!")
         with self.assertRaises(HTTPException) as ctx:
             self.service.change_password(1, schema)
         self.assertEqual(ctx.exception.status_code, 400)
         self.assertIn("no coinciden", str(ctx.exception.detail))
 
-    def test_cambiar_password_actor_inexistente(self):
+    def test_change_password_nonexistent_actor(self):
         self.service.repo.get_by_id.return_value = None
         with self.assertRaises(HTTPException) as ctx:
             self.service.change_password(9999, _update("ValidPass123!"))
         self.assertEqual(ctx.exception.status_code, 404)
         self.assertIn("no encontrado", str(ctx.exception.detail))
 
-    def test_cambiar_password_success(self):
+    def test_change_password_success(self):
         jugador = Mock()
         jugador.id = 1
         self.service.repo.get_by_id.return_value = jugador
@@ -86,7 +86,7 @@ class TestJugadorCambiarPassword(unittest.TestCase):
         self.assertEqual(call_args.kwargs["accion"], "UPDATE_PASSWORD")
         self.assertEqual(call_args.kwargs["actor_id"], 1)
 
-    def test_cambiar_password_persistence_failure(self):
+    def test_change_password_persistence_failure(self):
         jugador = Mock()
         jugador.id = 1
         self.service.repo.get_by_id.return_value = jugador
@@ -101,7 +101,7 @@ class TestJugadorCambiarPassword(unittest.TestCase):
         self.assertEqual(call_args.kwargs["accion"], "UPDATE_PASSWORD_FAILED")
 
 
-class TestJugadorPasswordHashing(unittest.TestCase):
+class TestPlayerPasswordHashing(unittest.TestCase):
     def setUp(self):
         self.service = _service_with_mocks()
 

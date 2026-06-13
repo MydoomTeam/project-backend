@@ -6,20 +6,20 @@ from fastapi.responses import JSONResponse
 
 from app.api.tournaments import router as tournaments_router
 from app.controllers.admin_controller import router as admin_router
-from app.controllers.alerta_controller import router as alerta_router
+from app.controllers.alert_controller import router as alert_router
 from app.controllers.health_controller import router as health_router
-from app.controllers.jugador_controller import router as jugador_router
+from app.controllers.player_controller import router as player_router
 from app.core.database import SessionLocal
 from app.domain.constants import SYSTEM_ADMIN_ID
-from app.repositories.jugador_repository import JugadorRepository
+from app.repositories.player_repository import PlayerRepository
 from app.tasks.scheduler import start_scheduler
 
 
 def _initialize_system_actor_for_audit_logs() -> None:
     db = SessionLocal()
     try:
-        # Actor de sistema (Jugador): satisface audit_logs.usuario_id -> jugador.id (ADR-005, 5a).
-        JugadorRepository(db).ensure_system_user(SYSTEM_ADMIN_ID)
+        # Actor de sistema (Player): satisface audit_logs.usuario_id -> jugador.id (ADR-005, 5a).
+        PlayerRepository(db).ensure_system_user(SYSTEM_ADMIN_ID)
     finally:
         db.close()
 
@@ -46,9 +46,9 @@ async def request_validation_handler(_request, exc: RequestValidationError):
 
 app.include_router(admin_router)
 app.include_router(tournaments_router)
-app.include_router(alerta_router)
+app.include_router(alert_router)
 app.include_router(health_router)
-app.include_router(jugador_router)
+app.include_router(player_router)
 
 
 @app.get("/")

@@ -1,21 +1,21 @@
-from app.domain.models.alerta import Alerta
+from app.domain.models.alert import Alert
 from app.models.audit_log import AuditLogModel
 from app.tasks.scheduler import check_overdue_events
 from tests.helpers import seed_overdue_scheduled_match
 
 
-def test_scheduler_crea_alerta_para_match_vencido(db_session):
+def test_scheduler_creates_alert_for_overdue_match(db_session):
     seed_overdue_scheduled_match(db_session)
 
     check_overdue_events()
 
-    assert db_session.query(Alerta).count() == 1
+    assert db_session.query(Alert).count() == 1
     assert (
         db_session.query(AuditLogModel).filter_by(accion="CREATE_ALERTA").count() == 1
     )
 
 
-def test_get_alerts_muestra_alerta_creada(client, db_session):
+def test_get_alerts_shows_created_alert(client, db_session):
     seed_overdue_scheduled_match(db_session)
     check_overdue_events()
 
@@ -28,16 +28,16 @@ def test_get_alerts_muestra_alerta_creada(client, db_session):
     assert data["items"][0]["status"] == "nueva"
 
 
-def test_scheduler_no_crea_alerta_duplicada(db_session):
+def test_scheduler_does_not_create_duplicate_alert(db_session):
     seed_overdue_scheduled_match(db_session)
 
     check_overdue_events()
     check_overdue_events()
 
-    assert db_session.query(Alerta).count() == 1
+    assert db_session.query(Alert).count() == 1
 
 
-def test_scheduler_sin_eventos_registra_auditoria(db_session):
+def test_scheduler_without_events_logs_audit(db_session):
     check_overdue_events()
 
     assert (
@@ -46,7 +46,7 @@ def test_scheduler_sin_eventos_registra_auditoria(db_session):
     )
 
 
-def test_ack_alerta(client, db_session):
+def test_ack_alert(client, db_session):
     seed_overdue_scheduled_match(db_session)
     check_overdue_events()
 

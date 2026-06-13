@@ -15,11 +15,11 @@ class MatchResponse(BaseModel):
     estado: str
 
 
-class ResultadoRequest(BaseModel):
+class ResultRequest(BaseModel):
     ganador_id: int
 
 
-class ResultadoResponse(BaseModel):
+class ResultResponse(BaseModel):
     match: MatchResponse
     ganador_nuevo_elo: int
     perdedor_nuevo_elo: int
