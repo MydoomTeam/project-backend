@@ -14,11 +14,11 @@ from app.services.tournament_service import TournamentService
 @dataclass
 class DummyTournament:
     id: int = 10
-    nombre: str = "Torneo Unitario"
-    tipo_eliminacion: str = "Eliminación Doble"
-    rondas: int = 5
-    estado: str = "Pendiente"
-    creador_id: int = 1
+    name: str = "Torneo Unitario"
+    elimination_type: str = "Eliminación Doble"
+    rounds: int = 5
+    status: str = "Pendiente"
+    creator_id: int = 1
 
 
 class FakeTournamentRepository:
@@ -26,18 +26,18 @@ class FakeTournamentRepository:
         self.existing_tournament = existing_tournament
         self.saved_tournament = None
 
-    def get_active_by_name(self, nombre: str):
+    def get_active_by_name(self, name: str):
         return self.existing_tournament
 
     def save(self, tournament):
         self.saved_tournament = tournament
         return DummyTournament(
             id=10,
-            nombre=tournament.nombre,
-            tipo_eliminacion=tournament.tipo_eliminacion,
-            rondas=tournament.rondas,
-            estado=tournament.estado,
-            creador_id=tournament.creador_id,
+            name=tournament.name,
+            elimination_type=tournament.elimination_type,
+            rounds=tournament.rounds,
+            status=tournament.status,
+            creator_id=tournament.creator_id,
         )
 
 
@@ -47,10 +47,10 @@ class FakeAuditLogRepository:
         self.recorded_date = None
         self.recorded_user_id = None
 
-    def record(self, accion, usuario_id, fecha):
-        self.recorded_action = accion
-        self.recorded_user_id = usuario_id
-        self.recorded_date = fecha
+    def record(self, action, user_id, created_at):
+        self.recorded_action = action
+        self.recorded_user_id = user_id
+        self.recorded_date = created_at
 
 
 class FixedDateTime:
@@ -60,14 +60,14 @@ class FixedDateTime:
 
 
 def build_payload(
-    nombre: str = "Torneo Unitario",
-    tipo_eliminacion: str = "Eliminación Doble",
-    rondas: int = 5,
+    name: str = "Torneo Unitario",
+    elimination_type: str = "Eliminación Doble",
+    rounds: int = 5,
 ) -> TournamentCreate:
     return TournamentCreate(
-        nombre=nombre,
-        tipo_eliminacion=tipo_eliminacion,
-        rondas=rondas,
+        name=name,
+        elimination_type=elimination_type,
+        rounds=rounds,
     )
 
 
@@ -90,16 +90,16 @@ class TestCreateTournament(unittest.TestCase):
         tournament_service_module.datetime = FixedDateTime
 
         service = TournamentService(db=object())
-        result = service.create_tournament(build_payload(), creador_id=7)
+        result = service.create_tournament(build_payload(), creator_id=7)
 
         self.assertEqual(result.id, 10)
-        self.assertEqual(result.nombre, "Torneo Unitario")
-        self.assertEqual(result.tipo_eliminacion, "Eliminación Doble")
-        self.assertEqual(result.rondas, 5)
-        self.assertEqual(result.estado, "Pendiente")
-        self.assertEqual(result.creador_id, 7)
+        self.assertEqual(result.name, "Torneo Unitario")
+        self.assertEqual(result.elimination_type, "Eliminación Doble")
+        self.assertEqual(result.rounds, 5)
+        self.assertEqual(result.status, "Pendiente")
+        self.assertEqual(result.creator_id, 7)
         self.assertIsNotNone(fake_repo.saved_tournament)
-        self.assertEqual(fake_repo.saved_tournament.estado, "Pendiente")
+        self.assertEqual(fake_repo.saved_tournament.status, "Pendiente")
         self.assertEqual(fake_audit.recorded_action, "CREAR_TORNEO")
         self.assertEqual(fake_audit.recorded_date, datetime(2026, 6, 7, 12, 0, 0))
         self.assertEqual(fake_audit.recorded_user_id, 7)
@@ -113,8 +113,8 @@ class TestCreateTournament(unittest.TestCase):
 
         with self.assertRaises(HTTPException) as context:
             service.create_tournament(
-                build_payload(tipo_eliminacion="Eliminación Sencilla", rondas=8),
-                creador_id=7,
+                build_payload(elimination_type="Eliminación Sencilla", rounds=8),
+                creator_id=7,
             )
 
         self.assertEqual(context.exception.status_code, status.HTTP_400_BAD_REQUEST)
@@ -128,7 +128,7 @@ class TestCreateTournament(unittest.TestCase):
         service = TournamentService(db=object())
 
         with self.assertRaises(HTTPException) as context:
-            service.create_tournament(build_payload(nombre="Torneo Unitario"), creador_id=7)
+            service.create_tournament(build_payload(name="Torneo Unitario"), creator_id=7)
 
         self.assertEqual(context.exception.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("Ya existe un torneo activo", str(context.exception.detail))
@@ -136,19 +136,19 @@ class TestCreateTournament(unittest.TestCase):
     def test_schema_rejects_empty_name(self):
         with self.assertRaises(ValidationError):
             TournamentCreate.model_validate(
-                {"nombre": "", "tipo_eliminacion": "Doble Eliminación", "rondas": 5}
+                {"name": "", "elimination_type": "Doble Eliminación", "rounds": 5}
             )
 
     def test_schema_rejects_empty_elimination_type(self):
         with self.assertRaises(ValidationError):
             TournamentCreate.model_validate(
-                {"nombre": "Torneo Unitario", "tipo_eliminacion": "", "rondas": 5}
+                {"name": "Torneo Unitario", "elimination_type": "", "rounds": 5}
             )
 
     def test_schema_rejects_invalid_rounds(self):
         with self.assertRaises(ValidationError):
             TournamentCreate.model_validate(
-                {"nombre": "Torneo Unitario", "tipo_eliminacion": "Doble Eliminación", "rondas": 0}
+                {"name": "Torneo Unitario", "elimination_type": "Doble Eliminación", "rounds": 0}
             )
 
 

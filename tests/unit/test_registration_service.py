@@ -13,16 +13,16 @@ from app.services.registration_service import RegistrationService
 @dataclass
 class DummyTournament:
     id: int = 9
-    estado: str = "Pendiente"
-    creador_id: int = 99
+    status: str = "Pendiente"
+    creator_id: int = 99
 
 
 @dataclass
 class DummyRegistration:
     id: int = 1
-    torneo_id: int = 9
-    jugador_id: int = 5
-    estado: str = "Confirmado"
+    tournament_id: int = 9
+    player_id: int = 5
+    status: str = "Confirmado"
 
 
 class FakeRegistrationRepository:
@@ -30,19 +30,19 @@ class FakeRegistrationRepository:
         self.already_registered = already_registered
         self.saved_registration = None
 
-    def active_registration_exists(self, torneo_id: int, jugador_id: int) -> bool:
+    def active_registration_exists(self, tournament_id: int, player_id: int) -> bool:
         return self.already_registered
 
-    def get_registration(self, torneo_id: int, jugador_id: int):
+    def get_registration(self, tournament_id: int, player_id: int):
         return None
 
     def save(self, registration: RegistrationModel) -> RegistrationModel:
         self.saved_registration = registration
         return DummyRegistration(
             id=1,
-            torneo_id=registration.torneo_id,
-            jugador_id=registration.jugador_id,
-            estado=registration.estado,
+            tournament_id=registration.tournament_id,
+            player_id=registration.player_id,
+            status=registration.status,
         )
 
 
@@ -50,12 +50,12 @@ class FakeTournamentRepository:
     def __init__(self, tournament: DummyTournament | None):
         self.tournament = tournament
 
-    def get_by_id(self, torneo_id: int):
+    def get_by_id(self, tournament_id: int):
         return self.tournament
 
 
-def build_payload(torneo_id: int = 9) -> RegistrationCreate:
-    return RegistrationCreate(torneo_id=torneo_id)
+def build_payload(tournament_id: int = 9) -> RegistrationCreate:
+    return RegistrationCreate(tournament_id=tournament_id)
 
 
 class TestRegistrationService(unittest.TestCase):
@@ -69,20 +69,20 @@ class TestRegistrationService(unittest.TestCase):
 
     def test_successful_registration_forces_confirmed_status(self):
         fake_registration_repo = FakeRegistrationRepository(already_registered=False)
-        fake_tournament_repo = FakeTournamentRepository(DummyTournament(estado="Pendiente"))
+        fake_tournament_repo = FakeTournamentRepository(DummyTournament(status="Pendiente"))
         registration_service_module.RegistrationRepository = lambda db: fake_registration_repo
         registration_service_module.TournamentRepository = lambda db: fake_tournament_repo
 
         service = RegistrationService(db=object())
-        result = service.register(build_payload(), jugador_id=5)
+        result = service.register(build_payload(), player_id=5)
 
         self.assertEqual(result.id, 1)
-        self.assertEqual(result.torneo_id, 9)
-        self.assertEqual(result.jugador_id, 5)
-        self.assertEqual(result.estado, "Confirmado")
-        self.assertEqual(fake_registration_repo.saved_registration.torneo_id, 9)
-        self.assertEqual(fake_registration_repo.saved_registration.jugador_id, 5)
-        self.assertEqual(fake_registration_repo.saved_registration.estado, "Confirmado")
+        self.assertEqual(result.tournament_id, 9)
+        self.assertEqual(result.player_id, 5)
+        self.assertEqual(result.status, "Confirmado")
+        self.assertEqual(fake_registration_repo.saved_registration.tournament_id, 9)
+        self.assertEqual(fake_registration_repo.saved_registration.player_id, 5)
+        self.assertEqual(fake_registration_repo.saved_registration.status, "Confirmado")
 
     def test_registration_rejects_nonexistent_tournament(self):
         fake_registration_repo = FakeRegistrationRepository(already_registered=False)
@@ -93,7 +93,7 @@ class TestRegistrationService(unittest.TestCase):
         service = RegistrationService(db=object())
 
         with self.assertRaises(HTTPException) as context:
-            service.register(build_payload(), jugador_id=5)
+            service.register(build_payload(), player_id=5)
 
         self.assertEqual(context.exception.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(
@@ -103,14 +103,14 @@ class TestRegistrationService(unittest.TestCase):
 
     def test_registration_rejects_non_pending_tournament(self):
         fake_registration_repo = FakeRegistrationRepository(already_registered=False)
-        fake_tournament_repo = FakeTournamentRepository(DummyTournament(estado="Activo"))
+        fake_tournament_repo = FakeTournamentRepository(DummyTournament(status="Activo"))
         registration_service_module.RegistrationRepository = lambda db: fake_registration_repo
         registration_service_module.TournamentRepository = lambda db: fake_tournament_repo
 
         service = RegistrationService(db=object())
 
         with self.assertRaises(HTTPException) as context:
-            service.register(build_payload(), jugador_id=5)
+            service.register(build_payload(), player_id=5)
 
         self.assertEqual(context.exception.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(
@@ -120,34 +120,34 @@ class TestRegistrationService(unittest.TestCase):
 
     def test_registration_rejects_already_registered_player(self):
         fake_registration_repo = FakeRegistrationRepository(already_registered=True)
-        fake_tournament_repo = FakeTournamentRepository(DummyTournament(estado="Pendiente"))
+        fake_tournament_repo = FakeTournamentRepository(DummyTournament(status="Pendiente"))
         registration_service_module.RegistrationRepository = lambda db: fake_registration_repo
         registration_service_module.TournamentRepository = lambda db: fake_tournament_repo
 
         service = RegistrationService(db=object())
 
         with self.assertRaises(HTTPException) as context:
-            service.register(build_payload(), jugador_id=5)
+            service.register(build_payload(), player_id=5)
 
         self.assertEqual(context.exception.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(context.exception.detail, "El jugador ya está inscrito en este torneo")
 
     def test_registration_rejects_tournament_admin(self):
         fake_registration_repo = FakeRegistrationRepository(already_registered=False)
-        fake_tournament_repo = FakeTournamentRepository(DummyTournament(estado="Pendiente", creador_id=5))
+        fake_tournament_repo = FakeTournamentRepository(DummyTournament(status="Pendiente", creator_id=5))
         registration_service_module.RegistrationRepository = lambda db: fake_registration_repo
         registration_service_module.TournamentRepository = lambda db: fake_tournament_repo
 
         service = RegistrationService(db=object())
 
         with self.assertRaises(HTTPException) as context:
-            service.register(build_payload(), jugador_id=5)
+            service.register(build_payload(), player_id=5)
 
         self.assertEqual(context.exception.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_schema_rejects_invalid_tournament_id(self):
         with self.assertRaises(ValidationError):
-            RegistrationCreate.model_validate({"torneo_id": 0})
+            RegistrationCreate.model_validate({"tournament_id": 0})
 
         with self.assertRaises(ValidationError):
             RegistrationCreate.model_validate({})

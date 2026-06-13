@@ -33,23 +33,23 @@ class TestBuildCompleteBracket(unittest.TestCase):
         participants = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
         matches = self._service()._build_full_bracket(1, participants)
 
-        self.assertEqual({m.ronda for m in matches}, {1, 2})
+        self.assertEqual({m.round for m in matches}, {1, 2})
         self.assertEqual(len(matches), 3)
 
     def test_five_players_byes_assigned_to_top_seeds(self):
         participants = [(1, 2000), (2, 1800), (3, 1600), (4, 1400), (5, 1200)]
         matches = self._service()._build_full_bracket(1, participants)
 
-        byes = [m for m in matches if m.ronda == 1 and m.jugador2_id is None]
+        byes = [m for m in matches if m.round == 1 and m.player2_id is None]
         self.assertEqual(len(byes), 3)
-        self.assertEqual({m.jugador1_id for m in byes}, {1, 2, 3})
+        self.assertEqual({m.player1_id for m in byes}, {1, 2, 3})
 
     def test_future_rounds_start_without_assigned_players(self):
         participants = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
         matches = self._service()._build_full_bracket(1, participants)
 
-        round2 = [m for m in matches if m.ronda == 2]
-        self.assertTrue(all(m.jugador1_id is None and m.jugador2_id is None for m in round2))
+        round2 = [m for m in matches if m.round == 2]
+        self.assertTrue(all(m.player1_id is None and m.player2_id is None for m in round2))
 
 
 class TestBuildRoundRobin(unittest.TestCase):
@@ -61,7 +61,7 @@ class TestBuildRoundRobin(unittest.TestCase):
         matches = self._service()._build_round_robin(1, participants)
 
         self.assertEqual(len(matches), 3)
-        pairs = {(m.jugador1_id, m.jugador2_id) for m in matches}
+        pairs = {(m.player1_id, m.player2_id) for m in matches}
         self.assertEqual(pairs, {(1, 2), (1, 3), (2, 3)})
 
 
@@ -73,7 +73,7 @@ class TestBuildDoubleElimination(unittest.TestCase):
         participants = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
         matches = self._service()._build_double_elimination(1, participants)
 
-        types = {m.bracket_tipo for m in matches}
+        types = {m.bracket_type for m in matches}
         self.assertIn("ganadores", types)
         self.assertIn("perdedores", types)
         self.assertIn("gran_final", types)
@@ -82,30 +82,30 @@ class TestBuildDoubleElimination(unittest.TestCase):
         participants = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
         matches = self._service()._build_double_elimination(1, participants)
 
-        winners = [m for m in matches if m.bracket_tipo == "ganadores"]
+        winners = [m for m in matches if m.bracket_type == "ganadores"]
         self.assertEqual(len(winners), 3)
 
     def test_four_players_losers_bracket_has_two_matches(self):
         participants = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
         matches = self._service()._build_double_elimination(1, participants)
 
-        losers = [m for m in matches if m.bracket_tipo == "perdedores"]
+        losers = [m for m in matches if m.bracket_type == "perdedores"]
         self.assertEqual(len(losers), 2)
 
     def test_exactly_one_grand_final_match(self):
         participants = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
         matches = self._service()._build_double_elimination(1, participants)
 
-        grand_final = [m for m in matches if m.bracket_tipo == "gran_final"]
+        grand_final = [m for m in matches if m.bracket_type == "gran_final"]
         self.assertEqual(len(grand_final), 1)
 
     def test_grand_final_starts_without_players(self):
         participants = [(1, 2000), (2, 1800), (3, 1600), (4, 1400)]
         matches = self._service()._build_double_elimination(1, participants)
 
-        gf = next(m for m in matches if m.bracket_tipo == "gran_final")
-        self.assertIsNone(gf.jugador1_id)
-        self.assertIsNone(gf.jugador2_id)
+        gf = next(m for m in matches if m.bracket_type == "gran_final")
+        self.assertIsNone(gf.player1_id)
+        self.assertIsNone(gf.player2_id)
 
     def test_loser_path_first_round_first_position(self):
         lb_round, lb_pos, lb_slot = MatchService._loser_route_to_losers(1, 0)
@@ -147,25 +147,25 @@ class TestBuildSwiss(unittest.TestCase):
         matches = self._service()._build_swiss_round1(1, participants)
 
         first_match = matches[0]
-        self.assertIn(1, (first_match.jugador1_id, first_match.jugador2_id))
-        self.assertIn(2, (first_match.jugador1_id, first_match.jugador2_id))
+        self.assertIn(1, (first_match.player1_id, first_match.player2_id))
+        self.assertIn(2, (first_match.player1_id, first_match.player2_id))
 
     def test_five_players_generates_bye_for_last(self):
         participants = [(1, 2000), (2, 1800), (3, 1600), (4, 1400), (5, 1200)]
         matches = self._service()._build_swiss_round1(1, participants)
 
-        byes = [m for m in matches if m.jugador2_id is None]
+        byes = [m for m in matches if m.player2_id is None]
         self.assertEqual(len(byes), 1)
-        self.assertEqual(byes[0].estado, "Finalizado")
+        self.assertEqual(byes[0].status, "Finalizado")
 
     def test_pairing_avoids_rematches(self):
         played_pairs = {(1, 2)}
         players = [1, 2, 3, 4]
-        matches = MatchService._pair_swiss(1, ronda=2, players=players, played_pairs=played_pairs)
+        matches = MatchService._pair_swiss(1, round=2, players=players, played_pairs=played_pairs)
 
         for m in matches:
-            if m.jugador2_id is not None:
-                pair = (min(m.jugador1_id, m.jugador2_id), max(m.jugador1_id, m.jugador2_id))
+            if m.player2_id is not None:
+                pair = (min(m.player1_id, m.player2_id), max(m.player1_id, m.player2_id))
                 self.assertNotIn(pair, played_pairs)
 
     def test_all_swiss_matches_start_in_progress(self):
@@ -173,8 +173,8 @@ class TestBuildSwiss(unittest.TestCase):
         matches = self._service()._build_swiss_round1(1, participants)
 
         for m in matches:
-            if m.jugador2_id is not None:
-                self.assertEqual(m.estado, "En curso")
+            if m.player2_id is not None:
+                self.assertEqual(m.status, "En curso")
 
 
 if __name__ == "__main__":

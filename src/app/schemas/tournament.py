@@ -4,20 +4,20 @@ from app.schemas.match import MatchResponse
 
 
 class TournamentCreate(BaseModel):
-    nombre: str = Field(min_length=1)
-    tipo_eliminacion: str = Field(min_length=1)
-    rondas: int = Field(gt=0)
+    name: str = Field(min_length=1)
+    elimination_type: str = Field(min_length=1)
+    rounds: int = Field(gt=0)
 
 
 class TournamentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    nombre: str
-    tipo_eliminacion: str
-    rondas: int
-    estado: str
-    creador_id: int
+    name: str
+    elimination_type: str
+    rounds: int
+    status: str
+    creator_id: int
 
 
 class TournamentListResponse(TournamentResponse):
@@ -25,31 +25,31 @@ class TournamentListResponse(TournamentResponse):
 
 
 class BracketResponse(BaseModel):
-    torneo_id: int
-    estado_torneo: str
+    tournament_id: int
+    tournament_status: str
     matches: list[MatchResponse]
 
 
 class TournamentDetailResponse(BaseModel):
     id: int
-    nombre: str
-    tipo_eliminacion: str
-    rondas: int
-    estado: str
-    creador_id: int
-    creador_nombre: str
-    total_participantes: int
+    name: str
+    elimination_type: str
+    rounds: int
+    status: str
+    creator_id: int
+    creator_name: str
+    total_participants: int
 
 
 class RankingEntry(BaseModel):
-    posicion: int
+    position: int
     jugador_id: int
-    victorias: int
-    elo_global: int
+    wins: int
+    global_elo: int
 
 
 class RankingResponse(BaseModel):
-    torneo_id: int
-    tipo_eliminacion: str
-    estado: str
+    tournament_id: int
+    elimination_type: str
+    status: str
     ranking: list[RankingEntry]

@@ -18,18 +18,18 @@ _CHECK_INTERVAL_SECONDS = 30
 def _record_overdue_alert(db, alert_repo, audit_repo, match) -> None:
     message = f"Enfrentamiento {match.id} vencido."
     try:
-        alert = alert_repo.create(tipo="match_overdue", mensaje=message)
+        alert = alert_repo.create(event_type="match_overdue", message=message)
         audit_repo.log_action(
             actor_id=SYSTEM_ADMIN_ID,
-            accion="CREATE_ALERTA",
-            descripcion_cambio=f"scheduler:Alert:{alert.id}",
+            action="CREATE_ALERTA",
+            change_description=f"scheduler:Alert:{alert.id}",
         )
     except Exception as e:
         logger.error(f"Error registrando alerta para match {match.id}: {e}")
         audit_repo.log_action(
             actor_id=SYSTEM_ADMIN_ID,
-            accion="CREATE_ALERTA_FAILED",
-            descripcion_cambio=f"scheduler:Enfrentamiento:{match.id}",
+            action="CREATE_ALERTA_FAILED",
+            change_description=f"scheduler:Enfrentamiento:{match.id}",
         )
         db.rollback()
 
@@ -41,15 +41,15 @@ def check_overdue_events():
         audit_repo = AuditLogRepository(db)
 
         overdue_matches = db.query(ScheduledMatch).filter(
-            ScheduledMatch.estado_match == "Pendiente",
-            ScheduledMatch.fecha_hora_programada <= today,
+            ScheduledMatch.match_status == "Pendiente",
+            ScheduledMatch.scheduled_datetime <= today,
         ).all()
 
         if not overdue_matches:
             audit_repo.log_action(
                 actor_id=SYSTEM_ADMIN_ID,
-                accion="CHECK_OVERDUE_OK",
-                descripcion_cambio="scheduler:Enfrentamiento",
+                action="CHECK_OVERDUE_OK",
+                change_description="scheduler:Enfrentamiento",
             )
             return
 

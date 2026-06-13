@@ -37,5 +37,5 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
     return LoginResponse(
         access_token=create_access_token(player.id),
-        jugador=PlayerRead.model_validate(player),
+        player=PlayerRead.model_validate(player),
     )

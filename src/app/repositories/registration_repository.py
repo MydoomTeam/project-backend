@@ -8,11 +8,11 @@ class RegistrationRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def active_registration_exists(self, torneo_id: int, jugador_id: int) -> bool:
+    def active_registration_exists(self, tournament_id: int, player_id: int) -> bool:
         stmt = select(RegistrationModel).where(
-            RegistrationModel.torneo_id == torneo_id,
-            RegistrationModel.jugador_id == jugador_id,
-            RegistrationModel.estado == "Confirmado",
+            RegistrationModel.tournament_id == tournament_id,
+            RegistrationModel.player_id == player_id,
+            RegistrationModel.status == "Confirmado",
         )
         return self.db.execute(stmt).scalars().first() is not None
 
@@ -22,27 +22,27 @@ class RegistrationRepository:
         self.db.refresh(registration)
         return registration
 
-    def get_active_registration(self, torneo_id: int, jugador_id: int) -> RegistrationModel | None:
+    def get_active_registration(self, tournament_id: int, player_id: int) -> RegistrationModel | None:
         stmt = select(RegistrationModel).where(
-            RegistrationModel.torneo_id == torneo_id,
-            RegistrationModel.jugador_id == jugador_id,
-            RegistrationModel.estado == "Confirmado",
+            RegistrationModel.tournament_id == tournament_id,
+            RegistrationModel.player_id == player_id,
+            RegistrationModel.status == "Confirmado",
         )
         return self.db.execute(stmt).scalars().first()
 
-    def get_registration(self, torneo_id: int, jugador_id: int) -> RegistrationModel | None:
+    def get_registration(self, tournament_id: int, player_id: int) -> RegistrationModel | None:
         stmt = select(RegistrationModel).where(
-            RegistrationModel.torneo_id == torneo_id,
-            RegistrationModel.jugador_id == jugador_id,
+            RegistrationModel.tournament_id == tournament_id,
+            RegistrationModel.player_id == player_id,
         )
         return self.db.execute(stmt).scalars().first()
 
     def reactivate(self, registration: RegistrationModel) -> RegistrationModel:
-        registration.estado = "Confirmado"
+        registration.status = "Confirmado"
         self.db.commit()
         self.db.refresh(registration)
         return registration
 
     def cancel(self, registration: RegistrationModel) -> None:
-        registration.estado = "Cancelada"
+        registration.status = "Cancelada"
         self.db.commit()

@@ -50,7 +50,7 @@ TestingSessionLocal = database.SessionLocal
 def db_session():
     Base.metadata.create_all(bind=test_engine)
     session = TestingSessionLocal()
-    # Actor de sistema (Player) para satisfacer audit_logs.usuario_id -> jugador.id,
+    # Actor de sistema (Player) para satisfacer audit_logs.user_id -> players.id,
     # equivalente a lo que hace el lifespan de la app en producción (ADR-005 5a).
     PlayerRepository(session).ensure_system_user(SYSTEM_ADMIN_ID)
     session.commit()

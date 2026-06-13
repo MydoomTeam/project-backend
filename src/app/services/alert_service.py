@@ -26,8 +26,8 @@ class AlertService:
         self.alert_repo.acknowledge(alert)
         self.audit_repo.log_action(
             actor_id=actor_id,
-            accion="ACK_ALERTA",
-            descripcion_cambio=f"Alert:{alert_id}",
+            action="ACK_ALERTA",
+            change_description=f"Alert:{alert_id}",
         )
         return {"message": "acknowledged"}
 
@@ -35,8 +35,8 @@ class AlertService:
     def _to_response(alert) -> AlertResponse:
         return AlertResponse(
             id=alert.id,
-            tipo=alert.tipo_evento,
-            mensaje=alert.mensaje,
-            created_at=alert.fecha_hora,
-            status=alert.estado_lectura,
+            event_type=alert.event_type,
+            message=alert.message,
+            created_at=alert.datetime,
+            status=alert.read_status,
         )

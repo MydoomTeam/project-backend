@@ -23,10 +23,10 @@ class TestAlertServiceValidation(unittest.TestCase):
     def test_get_alerts_with_data(self):
         mock_alert = Mock()
         mock_alert.id = 1
-        mock_alert.tipo_evento = "match_overdue"
-        mock_alert.mensaje = "Match vencido"
-        mock_alert.fecha_hora = date.today()
-        mock_alert.estado_lectura = "no_leido"
+        mock_alert.event_type = "match_overdue"
+        mock_alert.message = "Match vencido"
+        mock_alert.datetime = date.today()
+        mock_alert.read_status = "no_leido"
         
         self.mock_alert_repo.get_all.return_value = [mock_alert]
         
@@ -34,7 +34,7 @@ class TestAlertServiceValidation(unittest.TestCase):
         
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].id, 1)
-        self.assertEqual(result[0].tipo, "match_overdue")
+        self.assertEqual(result[0].event_type, "match_overdue")
 
     def test_acknowledge_alert_success(self):
         admin_id = 1
@@ -74,7 +74,7 @@ class TestAlertServiceValidation(unittest.TestCase):
         self.mock_audit_repo.log_action.assert_called_once()
         call_args = self.mock_audit_repo.log_action.call_args
         self.assertEqual(call_args.kwargs["actor_id"], admin_id)
-        self.assertEqual(call_args.kwargs["accion"], "ACK_ALERTA")
+        self.assertEqual(call_args.kwargs["action"], "ACK_ALERTA")
 
     def test_acknowledge_alert_passes_alert_to_repo(self):
         admin_id = 1
@@ -91,10 +91,10 @@ class TestAlertServiceValidation(unittest.TestCase):
     def test_get_alerts_converts_to_response_schema(self):
         mock_alert = Mock()
         mock_alert.id = 1
-        mock_alert.tipo_evento = "match_overdue"
-        mock_alert.mensaje = "Test alert"
-        mock_alert.fecha_hora = date.today()
-        mock_alert.estado_lectura = "leido"
+        mock_alert.event_type = "match_overdue"
+        mock_alert.message = "Test alert"
+        mock_alert.datetime = date.today()
+        mock_alert.read_status = "leido"
         
         self.mock_alert_repo.get_all.return_value = [mock_alert]
         
@@ -102,8 +102,8 @@ class TestAlertServiceValidation(unittest.TestCase):
         
         self.assertEqual(len(result), 1)
         self.assertTrue(hasattr(result[0], "id"))
-        self.assertTrue(hasattr(result[0], "tipo"))
-        self.assertTrue(hasattr(result[0], "mensaje"))
+        self.assertTrue(hasattr(result[0], "event_type"))
+        self.assertTrue(hasattr(result[0], "message"))
 
     def test_acknowledge_alert_with_multiple_alerts(self):
         admin_id = 1

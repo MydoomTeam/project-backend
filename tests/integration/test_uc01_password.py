@@ -25,13 +25,13 @@ def test_admin_password_valid(client, db_session):
 
     # El actor proviene de get_current_user (jugador autenticado = 1), no del stub.
     player = db_session.query(Player).filter_by(id=1).first()
-    assert player.contrasena_hash.startswith("$2")
+    assert player.password_hash.startswith("$2")
     audit = (
         db_session.query(AuditLogModel)
-        .filter_by(accion="UPDATE_PASSWORD")
+        .filter_by(action="UPDATE_PASSWORD")
         .one()
     )
-    assert audit.usuario_id == 1
+    assert audit.user_id == 1
 
 
 def test_admin_password_and_confirmation_differ(client, db_session):
@@ -70,7 +70,7 @@ def test_admin_password_db_failure(client, db_session):
     assert response.status_code == 500
     assert (
         db_session.query(AuditLogModel)
-        .filter_by(accion="UPDATE_PASSWORD_FAILED")
+        .filter_by(action="UPDATE_PASSWORD_FAILED")
         .count()
         == 1
     )

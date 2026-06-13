@@ -9,8 +9,8 @@ class ScheduledMatch(Base):
 
     id = Column(Integer, Identity(), primary_key=True)
     match_id = Column(Integer, ForeignKey("matches.id"), nullable=True)
-    match_siguiente_id = Column(Integer, nullable=True)
-    estado_match = Column(Text, nullable=False)
-    marcador_detalle = Column(Text, nullable=False)
-    fecha_hora_programada = Column(Date, nullable=False)
-    resultado = Column(Text, nullable=True)
+    next_match_id = Column(Integer, nullable=True)
+    match_status = Column(Text, nullable=False)
+    score_detail = Column(Text, nullable=False)
+    scheduled_datetime = Column(Date, nullable=False)
+    result = Column(Text, nullable=True)

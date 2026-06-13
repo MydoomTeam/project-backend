@@ -10,21 +10,21 @@ def _seed_player(db_session, jugador_id: int = 1):
     if not db_session.query(Player).filter_by(id=jugador_id).first():
         db_session.add(Player(
             id=jugador_id,
-            nombre_usuario="test_creador",
-            correo_electronico="creador@test.com",
-            contrasena_hash="hash",
-            rol="jugador",
-            fecha_ultimo_acceso=date.today(),
-            elo_global=0,
+            username="test_creador",
+            email="creador@test.com",
+            password_hash="hash",
+            role="jugador",
+            last_access_date=date.today(),
+            global_elo=0,
         ))
         db_session.commit()
 
 
 def _tournament_payload(**overrides):
     payload = {
-        "nombre": "Copa Arena",
-        "tipo_eliminacion": "Eliminación Sencilla",
-        "rondas": 3,
+        "name": "Copa Arena",
+        "elimination_type": "Eliminación Sencilla",
+        "rounds": 3,
     }
     payload.update(overrides)
     return payload
@@ -35,15 +35,15 @@ def test_create_tournament_valid(client):
 
     assert response.status_code == 201
     data = response.json()
-    assert data["nombre"] == "Copa Arena"
-    assert data["estado"] == "Pendiente"
-    assert data["tipo_eliminacion"] == "Eliminación Sencilla"
-    assert data["rondas"] == 3
+    assert data["name"] == "Copa Arena"
+    assert data["status"] == "Pendiente"
+    assert data["elimination_type"] == "Eliminación Sencilla"
+    assert data["rounds"] == 3
 
 
 def test_create_tournament_missing_field(client):
     payload = _tournament_payload()
-    del payload["nombre"]
+    del payload["name"]
 
     response = client.post("/tournaments", json=payload)
     assert response.status_code == 422
@@ -51,7 +51,7 @@ def test_create_tournament_missing_field(client):
 
 
 def test_create_tournament_empty_name(client):
-    response = client.post("/tournaments", json=_tournament_payload(nombre=""))
+    response = client.post("/tournaments", json=_tournament_payload(name=""))
     assert response.status_code == 422
     assert response.json()["detail"]["error"] == "validation_error"
 
@@ -59,7 +59,7 @@ def test_create_tournament_empty_name(client):
 def test_create_tournament_invalid_rounds(client):
     response = client.post(
         "/tournaments",
-        json=_tournament_payload(rondas=0),
+        json=_tournament_payload(rounds=0),
     )
     assert response.status_code == 422
     assert response.json()["detail"]["error"] == "validation_error"
@@ -68,7 +68,7 @@ def test_create_tournament_invalid_rounds(client):
 def test_create_tournament_rounds_exceed_maximum(client):
     response = client.post(
         "/tournaments",
-        json=_tournament_payload(tipo_eliminacion="Eliminación Sencilla", rondas=10),
+        json=_tournament_payload(elimination_type="Eliminación Sencilla", rounds=10),
     )
     assert response.status_code == 400
 
@@ -76,7 +76,7 @@ def test_create_tournament_rounds_exceed_maximum(client):
 def test_create_tournament_invalid_elimination_type(client):
     response = client.post(
         "/tournaments",
-        json=_tournament_payload(tipo_eliminacion="invalido"),
+        json=_tournament_payload(elimination_type="invalido"),
     )
 
     assert response.status_code == 400
@@ -98,9 +98,9 @@ def test_get_tournament_by_id(client, db_session):
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == created["id"]
-    assert data["nombre"] == "Copa Arena"
-    assert data["estado"] == "Pendiente"
-    assert data["total_participantes"] == 0
+    assert data["name"] == "Copa Arena"
+    assert data["status"] == "Pendiente"
+    assert data["total_participants"] == 0
 
 
 def test_get_tournament_not_found(client):

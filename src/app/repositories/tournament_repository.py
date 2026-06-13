@@ -15,21 +15,21 @@ class TournamentRepository:
         stmt = select(TournamentModel).where(TournamentModel.id == torneo_id)
         return self.db.execute(stmt).scalars().first()
 
-    def get_active_by_name(self, nombre: str) -> TournamentModel | None:
+    def get_active_by_name(self, name: str) -> TournamentModel | None:
         stmt = select(TournamentModel).where(
-            TournamentModel.nombre == nombre,
-            TournamentModel.estado != "Finalizado",
+            TournamentModel.name == name,
+            TournamentModel.status != "Finalizado",
         )
         return self.db.execute(stmt).scalars().first()
 
     def list_available(self) -> list[TournamentModel]:
-        stmt = select(TournamentModel).where(TournamentModel.estado == "Pendiente").order_by(TournamentModel.id.asc())
+        stmt = select(TournamentModel).where(TournamentModel.status == "Pendiente").order_by(TournamentModel.id.asc())
         return list(self.db.execute(stmt).scalars().all())
 
     def get_detail_with_creator(self, torneo_id: int) -> tuple[TournamentModel, str, int] | None:
         stmt = (
-            select(TournamentModel, Player.nombre_usuario)
-            .join(Player, Player.id == TournamentModel.creador_id)
+            select(TournamentModel, Player.username)
+            .join(Player, Player.id == TournamentModel.creator_id)
             .where(TournamentModel.id == torneo_id)
         )
         row = self.db.execute(stmt).first()
@@ -40,8 +40,8 @@ class TournamentRepository:
             select(func.count())
             .select_from(RegistrationModel)
             .where(
-                RegistrationModel.torneo_id == torneo_id,
-                RegistrationModel.estado == "Confirmado",
+                RegistrationModel.tournament_id == torneo_id,
+                RegistrationModel.status == "Confirmado",
             )
         )
         total = self.db.execute(count_stmt).scalar() or 0
@@ -49,27 +49,27 @@ class TournamentRepository:
 
     def get_confirmed_participants(self, torneo_id: int) -> list[tuple[int, int]]:
         stmt = (
-            select(RegistrationModel.jugador_id, Player.elo_global)
-            .join(Player, Player.id == RegistrationModel.jugador_id)
+            select(RegistrationModel.player_id, Player.global_elo)
+            .join(Player, Player.id == RegistrationModel.player_id)
             .where(
-                RegistrationModel.torneo_id == torneo_id,
-                RegistrationModel.estado == "Confirmado",
+                RegistrationModel.tournament_id == torneo_id,
+                RegistrationModel.status == "Confirmado",
             )
-            .order_by(Player.elo_global.desc())
+            .order_by(Player.global_elo.desc())
         )
         rows = self.db.execute(stmt).all()
-        return [(int(row.jugador_id), int(row.elo_global)) for row in rows]
+        return [(int(row.player_id), int(row.global_elo)) for row in rows]
 
     def update_status(self, tournament: TournamentModel, new_status: str) -> TournamentModel:
-        tournament.estado = new_status
+        tournament.status = new_status
         self.db.flush()
         self.db.commit()
         self.db.refresh(tournament)
         return tournament
 
     def delete(self, tournament: TournamentModel) -> None:
-        self.db.execute(delete(MatchModel).where(MatchModel.torneo_id == tournament.id))
-        self.db.execute(delete(RegistrationModel).where(RegistrationModel.torneo_id == tournament.id))
+        self.db.execute(delete(MatchModel).where(MatchModel.tournament_id == tournament.id))
+        self.db.execute(delete(RegistrationModel).where(RegistrationModel.tournament_id == tournament.id))
         self.db.delete(tournament)
         self.db.commit()
 

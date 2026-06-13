@@ -5,12 +5,12 @@ from app.core.database import Base
 
 
 class Alert(Base):
-    __tablename__ = "alerta"
+    __tablename__ = "alerts"
 
     id = Column(Integer, Identity(), primary_key=True)
-    administrador_id = Column(Integer, nullable=True)
-    jugador_id = Column(Integer, nullable=True)
-    tipo_evento = Column(Text, nullable=False)
-    mensaje = Column(Text, nullable=False)
-    fecha_hora = Column(Date, nullable=False)
-    estado_lectura = Column(Text, nullable=False)
+    admin_id = Column(Integer, nullable=True)
+    player_id = Column(Integer, nullable=True)
+    event_type = Column(Text, nullable=False)
+    message = Column(Text, nullable=False)
+    datetime = Column(Date, nullable=False)
+    read_status = Column(Text, nullable=False)

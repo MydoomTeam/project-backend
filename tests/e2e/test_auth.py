@@ -16,30 +16,30 @@ LOGIN_URL = "/usuarios/login"
 @dataclass
 class DummyPlayer:
     id: int = 1
-    nombre_usuario: str = "alex123"
-    correo_electronico: str = "alex@test.com"
-    rol: str = "JUGADOR"
-    elo_global: int = 0
-    fecha_ultimo_acceso: str = "2026-01-01"
+    username: str = "alex123"
+    email: str = "alex@test.com"
+    role: str = "JUGADOR"
+    global_elo: int = 0
+    last_access_date: str = "2026-01-01"
 
 
 def build_registration_payload(
-    nombre_usuario: str = "alex123",
-    correo_electronico: str = "alex@test.com",
-    contrasena: str = "Password123!",
+    username: str = "alex123",
+    email: str = "alex@test.com",
+    password: str = "Password123!",
     ) -> dict:
     return {
-        "nombre_usuario": nombre_usuario,
-        "correo_electronico": correo_electronico,
-        "contrasena": contrasena,
+        "username": username,
+        "email": email,
+        "password": password,
     }
 
 
 def build_login_payload(
-    identificador: str = "alex123",
-    contrasena: str = "Password123!",
+    identifier: str = "alex123",
+    password: str = "Password123!",
 ) -> dict:
-    return {"identificador": identificador, "contrasena": contrasena}
+    return {"identifier": identifier, "password": password}
 
 
 def register(payload: dict):
@@ -64,8 +64,8 @@ def test_register_success(monkeypatch):
 @pytest.mark.parametrize(
     "payload,duplicated_user,duplicated_email",
     [
-        (build_registration_payload(correo_electronico="otro@test.com"), True, False),
-        (build_registration_payload(nombre_usuario="otro"), False, True),
+        (build_registration_payload(email="otro@test.com"), True, False),
+        (build_registration_payload(username="otro"), False, True),
     ],
 )
 def test_register_duplicate(monkeypatch, payload, duplicated_user, duplicated_email):
@@ -99,7 +99,7 @@ def test_login_wrong_password(monkeypatch):
 
     monkeypatch.setattr(PlayerService, "login", fake_login)
 
-    response = login(build_login_payload(contrasena="incorrecta"))
+    response = login(build_login_payload(password="incorrecta"))
 
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
@@ -107,13 +107,13 @@ def test_login_wrong_password(monkeypatch):
 @pytest.mark.parametrize(
     "url,payload",
     [
-        (REGISTER_URL, build_registration_payload(nombre_usuario="ab")),
-        (REGISTER_URL, build_registration_payload(contrasena="123")),
-        (REGISTER_URL, build_registration_payload(nombre_usuario="alexñ")),
-        (REGISTER_URL, build_registration_payload(contrasena="Pass\U0001f642123")),
-        (LOGIN_URL, {"identificador": "alex€", "contrasena": "Password123!"}),
-        (LOGIN_URL, {"identificador": "alex123"}),
-        (REGISTER_URL, {"correo_electronico": "alex@test.com", "contrasena": "Password123!"}),
+        (REGISTER_URL, build_registration_payload(username="ab")),
+        (REGISTER_URL, build_registration_payload(password="123")),
+        (REGISTER_URL, build_registration_payload(username="alexñ")),
+        (REGISTER_URL, build_registration_payload(password="Pass\U0001f642123")),
+        (LOGIN_URL, {"identifier": "alex€", "password": "Password123!"}),
+        (LOGIN_URL, {"identifier": "alex123"}),
+        (REGISTER_URL, {"email": "alex@test.com", "password": "Password123!"}),
     ],
 )
 def test_input_validation_rejects_invalid_payloads(url, payload):

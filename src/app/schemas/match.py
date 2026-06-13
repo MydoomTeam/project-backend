@@ -5,22 +5,22 @@ class MatchResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    torneo_id: int
-    ronda: int
-    posicion: int
-    bracket_tipo: str
-    jugador1_id: int | None
-    jugador2_id: int | None
-    ganador_id: int | None
-    estado: str
+    tournament_id: int
+    round: int
+    position: int
+    bracket_type: str
+    player1_id: int | None
+    player2_id: int | None
+    winner_id: int | None
+    status: str
 
 
 class ResultRequest(BaseModel):
-    ganador_id: int
+    winner_id: int
 
 
 class ResultResponse(BaseModel):
     match: MatchResponse
-    ganador_nuevo_elo: int
-    perdedor_nuevo_elo: int
-    torneo_finalizado: bool
+    winner_new_elo: int
+    loser_new_elo: int
+    tournament_finished: bool

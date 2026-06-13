@@ -7,8 +7,8 @@ class AlertResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    tipo: str
-    mensaje: str
+    event_type: str
+    message: str
     created_at: date
     status: str
 

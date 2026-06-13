@@ -22,7 +22,7 @@ class PlayerRepository:
 
     def ensure_system_user(self, jugador_id: int) -> Player:
         """Garantiza un Player de sistema con id fijo, actor de los eventos
-        automáticos (scheduler). Satisface la FK audit_logs.usuario_id -> jugador.id.
+        automáticos (scheduler). Satisface la FK audit_logs.user_id -> players.id.
         """
         existing = self.get_by_id(jugador_id)
         if existing is not None:
@@ -30,12 +30,12 @@ class PlayerRepository:
 
         player = Player(
             id=jugador_id,
-            nombre_usuario="system",
-            correo_electronico="system@localhost",
-            contrasena_hash="",
-            rol="JUGADOR",
-            fecha_ultimo_acceso=date.today(),
-            elo_global=0,
+            username="system",
+            email="system@localhost",
+            password_hash="",
+            role="JUGADOR",
+            last_access_date=date.today(),
+            global_elo=0,
         )
         self.db.add(player)
         self.db.commit()
@@ -49,12 +49,12 @@ class PlayerRepository:
             return 1
         return last.id + 1
 
-    def get_duplicates(self, nombre_usuario: str, email: str):
+    def get_duplicates(self, username: str, email: str):
         existing_username = self.db.execute(
-            select(Player).where(Player.nombre_usuario == nombre_usuario)
+            select(Player).where(Player.username == username)
         ).scalars().first()
         existing_email = self.db.execute(
-            select(Player).where(Player.correo_electronico == email)
+            select(Player).where(Player.email == email)
         ).scalars().first()
         return {
             "username": existing_username is not None,
@@ -63,18 +63,18 @@ class PlayerRepository:
 
     def get_by_login(self, identifier: str) -> Player | None:
         stmt = select(Player).where(
-            or_(Player.nombre_usuario == identifier, Player.correo_electronico == identifier)
+            or_(Player.username == identifier, Player.email == identifier)
         )
         return self.db.execute(stmt).scalars().first()
 
     def update_last_access(self, player: Player) -> Player:
-        player.fecha_ultimo_acceso = date.today()
+        player.last_access_date = date.today()
         self.db.commit()
         self.db.refresh(player)
         return player
 
     def update_password(self, player: Player, password_hash: str) -> Player:
-        player.contrasena_hash = password_hash
+        player.password_hash = password_hash
         self.db.commit()
         self.db.refresh(player)
         return player

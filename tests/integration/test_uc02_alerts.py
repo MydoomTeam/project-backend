@@ -11,7 +11,7 @@ def test_scheduler_creates_alert_for_overdue_match(db_session):
 
     assert db_session.query(Alert).count() == 1
     assert (
-        db_session.query(AuditLogModel).filter_by(accion="CREATE_ALERTA").count() == 1
+        db_session.query(AuditLogModel).filter_by(action="CREATE_ALERTA").count() == 1
     )
 
 
@@ -24,7 +24,7 @@ def test_get_alerts_shows_created_alert(client, db_session):
     data = response.json()
     assert "items" in data
     assert len(data["items"]) == 1
-    assert data["items"][0]["tipo"] == "match_overdue"
+    assert data["items"][0]["event_type"] == "match_overdue"
     assert data["items"][0]["status"] == "nueva"
 
 
@@ -41,7 +41,7 @@ def test_scheduler_without_events_logs_audit(db_session):
     check_overdue_events()
 
     assert (
-        db_session.query(AuditLogModel).filter_by(accion="CHECK_OVERDUE_OK").count()
+        db_session.query(AuditLogModel).filter_by(action="CHECK_OVERDUE_OK").count()
         == 1
     )
 

@@ -18,7 +18,7 @@ from app.tasks.scheduler import start_scheduler
 def _initialize_system_actor_for_audit_logs() -> None:
     db = SessionLocal()
     try:
-        # Actor de sistema (Player): satisface audit_logs.usuario_id -> jugador.id (ADR-005, 5a).
+        # Actor de sistema (Player): satisface audit_logs.user_id -> players.id (ADR-005, 5a).
         PlayerRepository(db).ensure_system_user(SYSTEM_ADMIN_ID)
     finally:
         db.close()

@@ -83,7 +83,7 @@ class TestPlayerChangePassword(unittest.TestCase):
         self.service.repo.update_password.assert_called_once()
         self.service.audit_repo.log_action.assert_called_once()
         call_args = self.service.audit_repo.log_action.call_args
-        self.assertEqual(call_args.kwargs["accion"], "UPDATE_PASSWORD")
+        self.assertEqual(call_args.kwargs["action"], "UPDATE_PASSWORD")
         self.assertEqual(call_args.kwargs["actor_id"], 1)
 
     def test_change_password_persistence_failure(self):
@@ -98,7 +98,7 @@ class TestPlayerChangePassword(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 500)
         self.assertIn("base de datos", str(ctx.exception.detail))
         call_args = self.service.audit_repo.log_action.call_args
-        self.assertEqual(call_args.kwargs["accion"], "UPDATE_PASSWORD_FAILED")
+        self.assertEqual(call_args.kwargs["action"], "UPDATE_PASSWORD_FAILED")
 
 
 class TestPlayerPasswordHashing(unittest.TestCase):

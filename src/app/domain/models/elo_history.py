@@ -5,11 +5,11 @@ from app.core.database import Base
 
 
 class EloHistory(Base):
-    __tablename__ = "historialelo"
+    __tablename__ = "elo_history"
 
     id = Column(Integer, Identity(), primary_key=True)
-    enfrentamiento_id = Column(Integer, nullable=False)
-    jugador_id = Column(Integer, nullable=False)
-    valor_elo_anterior = Column(Integer, nullable=False)
-    valor_elo_actual = Column(Integer, nullable=False)
-    fecha_cambio = Column(Date, nullable=False)
+    match_id = Column(Integer, nullable=False)
+    player_id = Column(Integer, nullable=False)
+    previous_elo = Column(Integer, nullable=False)
+    current_elo = Column(Integer, nullable=False)
+    change_date = Column(Date, nullable=False)

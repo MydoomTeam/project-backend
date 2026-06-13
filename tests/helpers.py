@@ -7,9 +7,9 @@ def seed_overdue_scheduled_match(session) -> ScheduledMatch:
     past = date.today() - timedelta(days=1)
     scheduled_match = ScheduledMatch(
         id=1,
-        estado_match="Pendiente",
-        marcador_detalle="0-0",
-        fecha_hora_programada=past,
+        match_status="Pendiente",
+        score_detail="0-0",
+        scheduled_datetime=past,
     )
     session.add(scheduled_match)
     session.commit()

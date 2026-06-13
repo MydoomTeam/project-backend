@@ -68,14 +68,14 @@ class PlayerService:
             self.repo.update_password(player, password_hash)
             self.audit_repo.log_action(
                 actor_id=jugador_id,
-                accion="UPDATE_PASSWORD",
-                descripcion_cambio="Player",
+                action="UPDATE_PASSWORD",
+                change_description="Player",
             )
         except Exception:
             self.audit_repo.log_action(
                 actor_id=jugador_id,
-                accion="UPDATE_PASSWORD_FAILED",
-                descripcion_cambio="Player",
+                action="UPDATE_PASSWORD_FAILED",
+                change_description="Player",
             )
             raise HTTPException(
                 status_code=500,
@@ -88,7 +88,7 @@ class PlayerService:
         return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
 
     def register_user(self, data: UserRegistration) -> RegistrationOutcome:
-        duplicates = self.repo.get_duplicates(data.nombre_usuario, data.correo_electronico)
+        duplicates = self.repo.get_duplicates(data.username, data.email)
         if duplicates["username"] or duplicates["email"]:
             return RegistrationOutcome(
                 duplicate_username=duplicates["username"],
@@ -96,20 +96,20 @@ class PlayerService:
             )
         player = Player(
             id=self.repo.next_id(),
-            nombre_usuario=data.nombre_usuario,
-            correo_electronico=data.correo_electronico,
-            contrasena_hash=self._hash_password(data.contrasena),
-            rol="JUGADOR",
-            elo_global=0,
-            fecha_ultimo_acceso=date.today(),
+            username=data.username,
+            email=data.email,
+            password_hash=self._hash_password(data.password),
+            role="JUGADOR",
+            global_elo=0,
+            last_access_date=date.today(),
         )
         created = self.repo.create(player)
-        logger.info(f"Usuario creado {created.nombre_usuario}")
+        logger.info(f"Usuario creado {created.username}")
         return RegistrationOutcome(player=created)
 
     def _verify_password(self, password: str, stored: str | None) -> bool:
         # Verificación defensiva: hash vacío/None/no-bcrypt -> False, nunca lanza.
-        # (El jugador de sistema tiene contrasena_hash="" y no es autenticable.)
+        # (El jugador de sistema tiene password_hash="" y no es autenticable.)
         if not stored:
             return False
         try:
@@ -118,9 +118,9 @@ class PlayerService:
             return False
 
     def login(self, data: LoginRequest):
-        player = self.repo.get_by_login(data.identificador)
+        player = self.repo.get_by_login(data.identifier)
         if player is None:
             return None
-        if not self._verify_password(data.contrasena, player.contrasena_hash):
+        if not self._verify_password(data.password, player.password_hash):
             return None
         return self.repo.update_last_access(player)

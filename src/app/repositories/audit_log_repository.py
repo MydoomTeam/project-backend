@@ -19,30 +19,30 @@ class AuditLogRepository:
 
     def record(
         self,
-        accion: str,
-        usuario_id: int,
-        fecha: datetime,
-        descripcion_cambio: str | None = None,
+        action: str,
+        user_id: int,
+        created_at: datetime,
+        change_description: str | None = None,
     ) -> None:
         self.db.add(
             AuditLogModel(
-                accion=accion,
-                fecha=fecha,
-                usuario_id=usuario_id,
-                descripcion_cambio=descripcion_cambio,
+                action=action,
+                created_at=created_at,
+                user_id=user_id,
+                change_description=change_description,
             )
         )
 
     def log_action(
         self,
         actor_id: int,
-        accion: str,
-        descripcion_cambio: str | None = None,
+        action: str,
+        change_description: str | None = None,
     ) -> None:
         self.record(
-            accion=accion,
-            usuario_id=actor_id,
-            fecha=datetime.now(),
-            descripcion_cambio=descripcion_cambio,
+            action=action,
+            user_id=actor_id,
+            created_at=datetime.now(),
+            change_description=change_description,
         )
         self.db.commit()

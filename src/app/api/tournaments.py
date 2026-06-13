@@ -32,9 +32,9 @@ def list_available_tournaments(
 def create_tournament(
     payload: TournamentCreate,
     db: Session = Depends(get_db),
-    creador_id: int = Depends(get_current_user),
+    creator_id: int = Depends(get_current_user),
 ) -> TournamentResponse:
-    return TournamentService(db).create_tournament(payload, creador_id)
+    return TournamentService(db).create_tournament(payload, creator_id)
 
 
 @router.post("/tournaments/register", response_model=RegistrationResponse, status_code=status.HTTP_201_CREATED)
@@ -102,7 +102,7 @@ def record_result(
     db: Session = Depends(get_db),
     admin_id: int = Depends(get_current_user),
 ) -> ResultResponse:
-    return MatchService(db).record_result(torneo_id, match_id, payload.ganador_id, admin_id)
+    return MatchService(db).record_result(torneo_id, match_id, payload.winner_id, admin_id)
 
 
 @router.get("/tournaments/{torneo_id}/ranking", response_model=RankingResponse)
