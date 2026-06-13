@@ -31,14 +31,14 @@ class UserRegistration(BaseModel):
 
     @field_validator("nombre_usuario")
     @classmethod
-    def validar_nombre(cls, value):
+    def validate_name(cls, value):
         if not re.match(_PATTERN_USERNAME, value):
             raise ValueError("El nombre de usuario solo permite letras y números")
         return value
 
     @field_validator("contrasena")
     @classmethod
-    def validar_contrasena(cls, value):
+    def validate_password(cls, value):
         if not re.match(_PATTERN_PASSWORD, value):
             raise ValueError("La contraseña contiene caracteres no permitidos")
         if not re.search(r"[A-Za-z]", value):
@@ -56,14 +56,14 @@ class LoginRequest(BaseModel):
 
     @field_validator("identificador")
     @classmethod
-    def validar_identificador(cls, value):
+    def validate_identifier(cls, value):
         if not re.match(_PATTERN_IDENTIFIER, value):
             raise ValueError("Caracteres inválidos en el identificador")
         return value
 
     @field_validator("contrasena")
     @classmethod
-    def validar_contrasena_login(cls, value):
+    def validate_login_password(cls, value):
         if not re.match(_PATTERN_PASSWORD, value):
             raise ValueError("Caracteres inválidos en la contraseña")
         return value

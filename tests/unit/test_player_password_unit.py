@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import bcrypt
 from fastapi import HTTPException
 
-from app.domain.schemas.jugador import PasswordUpdate
+from app.domain.schemas.player import PasswordUpdate
 from app.services.player_service import PlayerService
 
 
@@ -73,9 +73,9 @@ class TestPlayerChangePassword(unittest.TestCase):
         self.assertIn("no encontrado", str(ctx.exception.detail))
 
     def test_change_password_success(self):
-        jugador = Mock()
-        jugador.id = 1
-        self.service.repo.get_by_id.return_value = jugador
+        player = Mock()
+        player.id = 1
+        self.service.repo.get_by_id.return_value = player
 
         result = self.service.change_password(1, _update("ValidPass123!"))
 
@@ -87,9 +87,9 @@ class TestPlayerChangePassword(unittest.TestCase):
         self.assertEqual(call_args.kwargs["actor_id"], 1)
 
     def test_change_password_persistence_failure(self):
-        jugador = Mock()
-        jugador.id = 1
-        self.service.repo.get_by_id.return_value = jugador
+        player = Mock()
+        player.id = 1
+        self.service.repo.get_by_id.return_value = player
         self.service.repo.update_password.side_effect = Exception("DB Error")
 
         with self.assertRaises(HTTPException) as ctx:

@@ -52,7 +52,7 @@ def login(payload: dict):
 
 def test_register_success(monkeypatch):
     def fake_register_user(self, payload):
-        return RegistrationOutcome(jugador=DummyPlayer())
+        return RegistrationOutcome(player=DummyPlayer())
 
     monkeypatch.setattr(PlayerService, "register_user", fake_register_user)
 

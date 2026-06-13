@@ -50,8 +50,8 @@ def test_ack_alert(client, db_session):
     seed_overdue_scheduled_match(db_session)
     check_overdue_events()
 
-    alerta_id = client.get("/alerts").json()["items"][0]["id"]
-    response = client.patch(f"/alerts/{alerta_id}/ack")
+    alert_id = client.get("/alerts").json()["items"][0]["id"]
+    response = client.patch(f"/alerts/{alert_id}/ack")
 
     assert response.status_code == 200
     assert response.json() == {"message": "acknowledged"}

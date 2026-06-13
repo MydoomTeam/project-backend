@@ -44,19 +44,19 @@ class FakeDb:
 
 
 class FakeTournamentRepository:
-    def __init__(self, torneo=None, participantes=None):
-        self.torneo = torneo
-        self.participantes = participantes or []
+    def __init__(self, tournament=None, participants=None):
+        self.tournament = tournament
+        self.participants = participants or []
 
     def get_by_id(self, _):
-        return self.torneo
+        return self.tournament
 
     def get_confirmed_participants(self, _):
-        return self.participantes
+        return self.participants
 
-    def update_status(self, torneo, nuevo_estado):
-        torneo.estado = nuevo_estado
-        return torneo
+    def update_status(self, tournament, new_status):
+        tournament.estado = new_status
+        return tournament
 
 
 class FakeAuditLogRepository:
@@ -68,9 +68,9 @@ class FakeAuditLogRepository:
 
 
 class FakeMatchRepository:
-    def __init__(self, match=None, siguiente=None):
+    def __init__(self, match=None, next_match=None):
         self._match = match
-        self._siguiente = siguiente
+        self._next_match = next_match
         self.inserted: list = []
 
     def flush(self):
@@ -98,10 +98,10 @@ class FakeMatchRepository:
         return []
 
     def get_by_tournament_round_position(self, **__):
-        return self._siguiente
+        return self._next_match
 
     def get_by_tournament_round_position_bracket(self, **__):
-        return self._siguiente
+        return self._next_match
 
     def get_round1_byes(self, _):
         return []
@@ -126,8 +126,8 @@ class FakeMatchRepository:
 
 
 class FakePlayerRepository:
-    def __init__(self, jugadores: list[DummyPlayer] | None = None):
-        self._store = {j.id: j for j in (jugadores or [])}
+    def __init__(self, players: list[DummyPlayer] | None = None):
+        self._store = {j.id: j for j in (players or [])}
 
     def get_by_id(self, jugador_id: int):
         return self._store.get(jugador_id)
@@ -135,49 +135,49 @@ class FakePlayerRepository:
 
 class TestGenerateBracket(unittest.TestCase):
     def setUp(self):
-        self.original_torneo_repo = match_service_module.TournamentRepository
+        self.original_tournament_repo = match_service_module.TournamentRepository
         self.original_match_repo = match_service_module.MatchRepository
-        self.original_jugador_repo = match_service_module.PlayerRepository
+        self.original_player_repo = match_service_module.PlayerRepository
         self.original_audit_repo = match_service_module.AuditLogRepository
         self.fake_audit = FakeAuditLogRepository()
 
     def tearDown(self):
-        match_service_module.TournamentRepository = self.original_torneo_repo
+        match_service_module.TournamentRepository = self.original_tournament_repo
         match_service_module.MatchRepository = self.original_match_repo
-        match_service_module.PlayerRepository = self.original_jugador_repo
+        match_service_module.PlayerRepository = self.original_player_repo
         match_service_module.AuditLogRepository = self.original_audit_repo
 
-    def _inyectar(self, torneo_repo, match_repo=None):
-        match_service_module.TournamentRepository = lambda db: torneo_repo
+    def _inject(self, tournament_repo, match_repo=None):
+        match_service_module.TournamentRepository = lambda db: tournament_repo
         match_service_module.MatchRepository = lambda db: match_repo or FakeMatchRepository()
         match_service_module.PlayerRepository = lambda db: FakePlayerRepository()
         match_service_module.AuditLogRepository = lambda db: self.fake_audit
 
     def test_raises_404_if_tournament_not_found(self):
-        self._inyectar(FakeTournamentRepository(torneo=None))
+        self._inject(FakeTournamentRepository(tournament=None))
         with self.assertRaises(HTTPException) as ctx:
             MatchService(db=FakeDb()).generate_bracket(99, admin_id=10)
         self.assertEqual(ctx.exception.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_raises_403_if_user_is_not_creator(self):
-        self._inyectar(FakeTournamentRepository(torneo=DummyTournament(creador_id=10)))
+        self._inject(FakeTournamentRepository(tournament=DummyTournament(creador_id=10)))
         with self.assertRaises(HTTPException) as ctx:
             MatchService(db=FakeDb()).generate_bracket(1, admin_id=99)
         self.assertEqual(ctx.exception.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_raises_400_if_insufficient_participants(self):
-        repo = FakeTournamentRepository(torneo=DummyTournament(creador_id=10), participantes=[(1, 1500)])
-        self._inyectar(repo)
+        repo = FakeTournamentRepository(tournament=DummyTournament(creador_id=10), participants=[(1, 1500)])
+        self._inject(repo)
         with self.assertRaises(HTTPException) as ctx:
             MatchService(db=FakeDb()).generate_bracket(1, admin_id=10)
         self.assertEqual(ctx.exception.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_successful_bracket_generates_all_rounds_and_logs_audit(self):
-        torneo_repo = FakeTournamentRepository(
-            torneo=DummyTournament(creador_id=10),
-            participantes=[(1, 2000), (2, 1800), (3, 1600), (4, 1400)],
+        tournament_repo = FakeTournamentRepository(
+            tournament=DummyTournament(creador_id=10),
+            participants=[(1, 2000), (2, 1800), (3, 1600), (4, 1400)],
         )
-        self._inyectar(torneo_repo)
+        self._inject(tournament_repo)
         result = MatchService(db=FakeDb()).generate_bracket(1, admin_id=10)
 
         self.assertEqual(result.estado_torneo, "Listo para iniciar")
@@ -187,52 +187,52 @@ class TestGenerateBracket(unittest.TestCase):
 
 class TestRecordResult(unittest.TestCase):
     def setUp(self):
-        self.original_torneo_repo = match_service_module.TournamentRepository
+        self.original_tournament_repo = match_service_module.TournamentRepository
         self.original_match_repo = match_service_module.MatchRepository
-        self.original_jugador_repo = match_service_module.PlayerRepository
+        self.original_player_repo = match_service_module.PlayerRepository
 
     def tearDown(self):
-        match_service_module.TournamentRepository = self.original_torneo_repo
+        match_service_module.TournamentRepository = self.original_tournament_repo
         match_service_module.MatchRepository = self.original_match_repo
-        match_service_module.PlayerRepository = self.original_jugador_repo
+        match_service_module.PlayerRepository = self.original_player_repo
 
-    def _inyectar(self, torneo_repo, match_repo, jugador_repo):
-        match_service_module.TournamentRepository = lambda db: torneo_repo
+    def _inject(self, tournament_repo, match_repo, player_repo):
+        match_service_module.TournamentRepository = lambda db: tournament_repo
         match_service_module.MatchRepository = lambda db: match_repo
-        match_service_module.PlayerRepository = lambda db: jugador_repo
+        match_service_module.PlayerRepository = lambda db: player_repo
 
     def test_raises_400_if_winner_is_not_participant(self):
-        torneo_repo = FakeTournamentRepository(torneo=DummyTournament(estado="En curso", creador_id=10))
+        tournament_repo = FakeTournamentRepository(tournament=DummyTournament(estado="En curso", creador_id=10))
         match_repo = FakeMatchRepository(match=DummyMatch(jugador1_id=1, jugador2_id=2))
-        self._inyectar(torneo_repo, match_repo, FakePlayerRepository())
+        self._inject(tournament_repo, match_repo, FakePlayerRepository())
         with self.assertRaises(HTTPException) as ctx:
-            MatchService(db=FakeDb()).record_result(1, 1, ganador_id=99, admin_id=10)
+            MatchService(db=FakeDb()).record_result(1, 1, winner_id=99, admin_id=10)
         self.assertEqual(ctx.exception.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_updates_elo_of_both_players(self):
-        torneo_repo = FakeTournamentRepository(torneo=DummyTournament(estado="En curso", creador_id=10))
+        tournament_repo = FakeTournamentRepository(tournament=DummyTournament(estado="En curso", creador_id=10))
         match = DummyMatch(jugador1_id=1, jugador2_id=2, ronda=1, posicion=0)
-        match_repo = FakeMatchRepository(match=match, siguiente=DummyMatch(id=99, ronda=2, posicion=0))
-        jugadores = [DummyPlayer(id=1, elo_global=1000), DummyPlayer(id=2, elo_global=1000)]
-        self._inyectar(torneo_repo, match_repo, FakePlayerRepository(jugadores))
+        match_repo = FakeMatchRepository(match=match, next_match=DummyMatch(id=99, ronda=2, posicion=0))
+        players = [DummyPlayer(id=1, elo_global=1000), DummyPlayer(id=2, elo_global=1000)]
+        self._inject(tournament_repo, match_repo, FakePlayerRepository(players))
 
-        resultado = MatchService(db=FakeDb()).record_result(1, 1, ganador_id=1, admin_id=10)
+        result = MatchService(db=FakeDb()).record_result(1, 1, winner_id=1, admin_id=10)
 
-        self.assertGreater(resultado.ganador_nuevo_elo, 1000)
-        self.assertLess(resultado.perdedor_nuevo_elo, 1000)
+        self.assertGreater(result.ganador_nuevo_elo, 1000)
+        self.assertLess(result.perdedor_nuevo_elo, 1000)
 
     def test_finalizes_tournament_when_no_next_match(self):
-        torneo = DummyTournament(estado="En curso", creador_id=10)
-        torneo_repo = FakeTournamentRepository(torneo=torneo)
+        tournament = DummyTournament(estado="En curso", creador_id=10)
+        tournament_repo = FakeTournamentRepository(tournament=tournament)
         match = DummyMatch(jugador1_id=1, jugador2_id=2, ronda=3, posicion=0)
-        match_repo = FakeMatchRepository(match=match, siguiente=None)
-        jugadores = [DummyPlayer(id=1, elo_global=1500), DummyPlayer(id=2, elo_global=1200)]
-        self._inyectar(torneo_repo, match_repo, FakePlayerRepository(jugadores))
+        match_repo = FakeMatchRepository(match=match, next_match=None)
+        players = [DummyPlayer(id=1, elo_global=1500), DummyPlayer(id=2, elo_global=1200)]
+        self._inject(tournament_repo, match_repo, FakePlayerRepository(players))
 
-        resultado = MatchService(db=FakeDb()).record_result(1, 1, ganador_id=1, admin_id=10)
+        result = MatchService(db=FakeDb()).record_result(1, 1, winner_id=1, admin_id=10)
 
-        self.assertTrue(resultado.torneo_finalizado)
-        self.assertEqual(torneo.estado, "Finalizado")
+        self.assertTrue(result.torneo_finalizado)
+        self.assertEqual(tournament.estado, "Finalizado")
 
 
 if __name__ == "__main__":

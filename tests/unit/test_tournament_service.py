@@ -29,15 +29,15 @@ class FakeTournamentRepository:
     def get_active_by_name(self, nombre: str):
         return self.existing_tournament
 
-    def save(self, torneo):
-        self.saved_tournament = torneo
+    def save(self, tournament):
+        self.saved_tournament = tournament
         return DummyTournament(
             id=10,
-            nombre=torneo.nombre,
-            tipo_eliminacion=torneo.tipo_eliminacion,
-            rondas=torneo.rondas,
-            estado=torneo.estado,
-            creador_id=torneo.creador_id,
+            nombre=tournament.nombre,
+            tipo_eliminacion=tournament.tipo_eliminacion,
+            rondas=tournament.rondas,
+            estado=tournament.estado,
+            creador_id=tournament.creador_id,
         )
 
 

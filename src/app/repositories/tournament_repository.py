@@ -35,7 +35,7 @@ class TournamentRepository:
         row = self.db.execute(stmt).first()
         if row is None:
             return None
-        torneo, creador_nombre = row
+        tournament, creator_name = row
         count_stmt = (
             select(func.count())
             .select_from(RegistrationModel)
@@ -45,7 +45,7 @@ class TournamentRepository:
             )
         )
         total = self.db.execute(count_stmt).scalar() or 0
-        return torneo, creador_nombre, total
+        return tournament, creator_name, total
 
     def get_confirmed_participants(self, torneo_id: int) -> list[tuple[int, int]]:
         stmt = (
@@ -60,22 +60,22 @@ class TournamentRepository:
         rows = self.db.execute(stmt).all()
         return [(int(row.jugador_id), int(row.elo_global)) for row in rows]
 
-    def update_status(self, torneo: TournamentModel, nuevo_estado: str) -> TournamentModel:
-        torneo.estado = nuevo_estado
+    def update_status(self, tournament: TournamentModel, new_status: str) -> TournamentModel:
+        tournament.estado = new_status
         self.db.flush()
         self.db.commit()
-        self.db.refresh(torneo)
-        return torneo
+        self.db.refresh(tournament)
+        return tournament
 
-    def delete(self, torneo: TournamentModel) -> None:
-        self.db.execute(delete(MatchModel).where(MatchModel.torneo_id == torneo.id))
-        self.db.execute(delete(RegistrationModel).where(RegistrationModel.torneo_id == torneo.id))
-        self.db.delete(torneo)
+    def delete(self, tournament: TournamentModel) -> None:
+        self.db.execute(delete(MatchModel).where(MatchModel.torneo_id == tournament.id))
+        self.db.execute(delete(RegistrationModel).where(RegistrationModel.torneo_id == tournament.id))
+        self.db.delete(tournament)
         self.db.commit()
 
-    def save(self, torneo: TournamentModel) -> TournamentModel:
-        self.db.add(torneo)
+    def save(self, tournament: TournamentModel) -> TournamentModel:
+        self.db.add(tournament)
         self.db.flush()
         self.db.commit()
-        self.db.refresh(torneo)
-        return torneo
+        self.db.refresh(tournament)
+        return tournament

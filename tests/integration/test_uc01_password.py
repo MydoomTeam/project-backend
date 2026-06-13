@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.domain.models.player import Player
-from app.domain.schemas.jugador import PasswordUpdate
+from app.domain.schemas.player import PasswordUpdate
 from app.models.audit_log import AuditLogModel
 from app.repositories.player_repository import PlayerRepository
 from app.services.player_service import PlayerService
@@ -24,8 +24,8 @@ def test_admin_password_valid(client, db_session):
     assert response.json() == {"message": "password_updated"}
 
     # El actor proviene de get_current_user (jugador autenticado = 1), no del stub.
-    jugador = db_session.query(Player).filter_by(id=1).first()
-    assert jugador.contrasena_hash.startswith("$2")
+    player = db_session.query(Player).filter_by(id=1).first()
+    assert player.contrasena_hash.startswith("$2")
     audit = (
         db_session.query(AuditLogModel)
         .filter_by(accion="UPDATE_PASSWORD")

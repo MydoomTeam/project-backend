@@ -25,66 +25,66 @@ class TournamentService:
         return self.repo.list_available()
 
     def get_tournament_detail(self, torneo_id: int) -> TournamentDetailResponse:
-        resultado = self.repo.get_detail_with_creator(torneo_id)
-        if resultado is None:
+        result = self.repo.get_detail_with_creator(torneo_id)
+        if result is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Torneo no encontrado",
             )
-        torneo, creador_nombre, total_participantes = resultado
+        tournament, creator_name, total_participants = result
         return TournamentDetailResponse(
-            id=torneo.id,
-            nombre=torneo.nombre,
-            tipo_eliminacion=torneo.tipo_eliminacion,
-            rondas=torneo.rondas,
-            estado=torneo.estado,
-            creador_id=torneo.creador_id,
-            creador_nombre=creador_nombre,
-            total_participantes=total_participantes,
+            id=tournament.id,
+            nombre=tournament.nombre,
+            tipo_eliminacion=tournament.tipo_eliminacion,
+            rondas=tournament.rondas,
+            estado=tournament.estado,
+            creador_id=tournament.creador_id,
+            creador_nombre=creator_name,
+            total_participantes=total_participants,
         )
 
     def cancel_tournament(self, torneo_id: int, admin_id: int) -> None:
-        torneo = self.repo.get_by_id(torneo_id)
-        if torneo is None:
+        tournament = self.repo.get_by_id(torneo_id)
+        if tournament is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Torneo no encontrado",
             )
-        if torneo.creador_id != admin_id:
+        if tournament.creador_id != admin_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Solo el administrador puede cancelar el torneo",
             )
-        if torneo.estado not in ("Pendiente", "Listo para iniciar"):
+        if tournament.estado not in ("Pendiente", "Listo para iniciar"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Solo se puede cancelar un torneo en estado Pendiente o Listo para iniciar",
             )
         self.audit_repo.record(accion="CANCELAR_TORNEO", usuario_id=admin_id, fecha=datetime.now())
-        self.repo.delete(torneo)
+        self.repo.delete(tournament)
 
     def create_tournament(self, data: TournamentCreate, creador_id: int) -> TournamentModel:
-        max_rondas = _MAX_ROUNDS_BY_FORMAT.get(data.tipo_eliminacion)
-        if max_rondas is None:
-            formatos = list(_MAX_ROUNDS_BY_FORMAT)
+        max_rounds = _MAX_ROUNDS_BY_FORMAT.get(data.tipo_eliminacion)
+        if max_rounds is None:
+            formats = list(_MAX_ROUNDS_BY_FORMAT)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Formato '{data.tipo_eliminacion}' no reconocido. Válidos: {formatos}",
+                detail=f"Formato '{data.tipo_eliminacion}' no reconocido. Válidos: {formats}",
             )
-        if data.rondas > max_rondas:
+        if data.rondas > max_rounds:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"'{data.tipo_eliminacion}' admite máximo {max_rondas} rondas",
+                detail=f"'{data.tipo_eliminacion}' admite máximo {max_rounds} rondas",
             )
 
-        existente = self.repo.get_active_by_name(data.nombre)
-        if existente is not None:
+        existing = self.repo.get_active_by_name(data.nombre)
+        if existing is not None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Ya existe un torneo activo con ese nombre",
             )
 
-        torneo = TournamentModel(
+        tournament = TournamentModel(
             nombre=data.nombre,
             tipo_eliminacion=data.tipo_eliminacion,
             rondas=data.rondas,
@@ -92,4 +92,4 @@ class TournamentService:
             creador_id=creador_id,
         )
         self.audit_repo.record(accion="CREAR_TORNEO", usuario_id=creador_id, fecha=datetime.now())
-        return self.repo.save(torneo)
+        return self.repo.save(tournament)

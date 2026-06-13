@@ -16,11 +16,11 @@ class RegistrationRepository:
         )
         return self.db.execute(stmt).scalars().first() is not None
 
-    def save(self, inscripcion: RegistrationModel) -> RegistrationModel:
-        self.db.add(inscripcion)
+    def save(self, registration: RegistrationModel) -> RegistrationModel:
+        self.db.add(registration)
         self.db.commit()
-        self.db.refresh(inscripcion)
-        return inscripcion
+        self.db.refresh(registration)
+        return registration
 
     def get_active_registration(self, torneo_id: int, jugador_id: int) -> RegistrationModel | None:
         stmt = select(RegistrationModel).where(
@@ -37,12 +37,12 @@ class RegistrationRepository:
         )
         return self.db.execute(stmt).scalars().first()
 
-    def reactivate(self, inscripcion: RegistrationModel) -> RegistrationModel:
-        inscripcion.estado = "Confirmado"
+    def reactivate(self, registration: RegistrationModel) -> RegistrationModel:
+        registration.estado = "Confirmado"
         self.db.commit()
-        self.db.refresh(inscripcion)
-        return inscripcion
+        self.db.refresh(registration)
+        return registration
 
-    def cancel(self, inscripcion: RegistrationModel) -> None:
-        inscripcion.estado = "Cancelada"
+    def cancel(self, registration: RegistrationModel) -> None:
+        registration.estado = "Cancelada"
         self.db.commit()

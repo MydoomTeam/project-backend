@@ -12,8 +12,8 @@ class AlertRepository:
     def get_all(self) -> list[Alert]:
         return self.db.query(Alert).order_by(Alert.fecha_hora.desc()).all()
 
-    def get_by_id(self, alerta_id: int) -> Alert | None:
-        return self.db.query(Alert).filter(Alert.id == alerta_id).first()
+    def get_by_id(self, alert_id: int) -> Alert | None:
+        return self.db.query(Alert).filter(Alert.id == alert_id).first()
 
     def create(self, tipo: str, mensaje: str) -> Alert:
         existing = self.db.query(Alert).filter(
@@ -24,20 +24,20 @@ class AlertRepository:
         if existing:
             return existing
 
-        alerta = Alert(
+        alert = Alert(
             tipo_evento=tipo,
             mensaje=mensaje,
             fecha_hora=date.today(),
             estado_lectura="nueva",
         )
-        self.db.add(alerta)
+        self.db.add(alert)
         self.db.commit()
-        self.db.refresh(alerta)
-        return alerta
+        self.db.refresh(alert)
+        return alert
 
-    def acknowledge(self, alerta: Alert) -> Alert:
-        alerta.estado_lectura = "reconocida"
-        self.db.add(alerta)
+    def acknowledge(self, alert: Alert) -> Alert:
+        alert.estado_lectura = "reconocida"
+        self.db.add(alert)
         self.db.commit()
-        self.db.refresh(alerta)
-        return alerta
+        self.db.refresh(alert)
+        return alert

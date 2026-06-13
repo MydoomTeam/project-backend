@@ -1,14 +1,14 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.domain.schemas.alerta import AlertResponse
+from app.domain.schemas.alert import AlertResponse
 from app.repositories.alert_repository import AlertRepository
 from app.repositories.audit_log_repository import AuditLogRepository
 
 
 class AlertService:
-    def __init__(self, alerta_repo: AlertRepository, audit_repo: AuditLogRepository):
-        self.alerta_repo = alerta_repo
+    def __init__(self, alert_repo: AlertRepository, audit_repo: AuditLogRepository):
+        self.alert_repo = alert_repo
         self.audit_repo = audit_repo
 
     @classmethod
@@ -16,27 +16,27 @@ class AlertService:
         return cls(AlertRepository(db), AuditLogRepository(db))
 
     def get_alerts(self) -> list[AlertResponse]:
-        return [self._to_response(alerta) for alerta in self.alerta_repo.get_all()]
+        return [self._to_response(alert) for alert in self.alert_repo.get_all()]
 
-    def acknowledge_alert(self, actor_id: int, alerta_id: int):
-        alerta = self.alerta_repo.get_by_id(alerta_id)
-        if not alerta:
-            raise HTTPException(status_code=404, detail="Alert no encontrada")
+    def acknowledge_alert(self, actor_id: int, alert_id: int):
+        alert = self.alert_repo.get_by_id(alert_id)
+        if not alert:
+            raise HTTPException(status_code=404, detail="Alerta no encontrada")
 
-        self.alerta_repo.acknowledge(alerta)
+        self.alert_repo.acknowledge(alert)
         self.audit_repo.log_action(
             actor_id=actor_id,
             accion="ACK_ALERTA",
-            descripcion_cambio=f"Alert:{alerta_id}",
+            descripcion_cambio=f"Alert:{alert_id}",
         )
         return {"message": "acknowledged"}
 
     @staticmethod
-    def _to_response(alerta) -> AlertResponse:
+    def _to_response(alert) -> AlertResponse:
         return AlertResponse(
-            id=alerta.id,
-            tipo=alerta.tipo_evento,
-            mensaje=alerta.mensaje,
-            created_at=alerta.fecha_hora,
-            status=alerta.estado_lectura,
+            id=alert.id,
+            tipo=alert.tipo_evento,
+            mensaje=alert.mensaje,
+            created_at=alert.fecha_hora,
+            status=alert.estado_lectura,
         )

@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.domain.models.player import Player
-from app.domain.schemas.jugador import LoginRequest, PasswordUpdate, UserRegistration
+from app.domain.schemas.player import LoginRequest, PasswordUpdate, UserRegistration
 from app.repositories.audit_log_repository import AuditLogRepository
 from app.repositories.player_repository import PlayerRepository
 
@@ -25,7 +25,7 @@ _PASSWORD_RULES = [
 class RegistrationOutcome:
     """Resultado explícito del registro: jugador creado o conflicto de duplicados."""
 
-    jugador: Player | None = None
+    player: Player | None = None
     duplicate_username: bool = False
     duplicate_email: bool = False
 
@@ -59,13 +59,13 @@ class PlayerService:
 
         self._validate_password(schema.password)
 
-        jugador = self.repo.get_by_id(jugador_id)
-        if jugador is None:
-            raise HTTPException(status_code=404, detail="Player no encontrado")
+        player = self.repo.get_by_id(jugador_id)
+        if player is None:
+            raise HTTPException(status_code=404, detail="Jugador no encontrado")
 
         password_hash = self._hash_password(schema.password)
         try:
-            self.repo.update_password(jugador, password_hash)
+            self.repo.update_password(player, password_hash)
             self.audit_repo.log_action(
                 actor_id=jugador_id,
                 accion="UPDATE_PASSWORD",
@@ -88,13 +88,13 @@ class PlayerService:
         return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
 
     def register_user(self, data: UserRegistration) -> RegistrationOutcome:
-        duplicados = self.repo.get_duplicates(data.nombre_usuario, data.correo_electronico)
-        if duplicados["usuario"] or duplicados["correo"]:
+        duplicates = self.repo.get_duplicates(data.nombre_usuario, data.correo_electronico)
+        if duplicates["username"] or duplicates["email"]:
             return RegistrationOutcome(
-                duplicate_username=duplicados["usuario"],
-                duplicate_email=duplicados["correo"],
+                duplicate_username=duplicates["username"],
+                duplicate_email=duplicates["email"],
             )
-        jugador = Player(
+        player = Player(
             id=self.repo.next_id(),
             nombre_usuario=data.nombre_usuario,
             correo_electronico=data.correo_electronico,
@@ -103,24 +103,24 @@ class PlayerService:
             elo_global=0,
             fecha_ultimo_acceso=date.today(),
         )
-        creado = self.repo.create(jugador)
-        logger.info(f"Usuario creado {creado.nombre_usuario}")
-        return RegistrationOutcome(jugador=creado)
+        created = self.repo.create(player)
+        logger.info(f"Usuario creado {created.nombre_usuario}")
+        return RegistrationOutcome(player=created)
 
-    def _verify_password(self, password: str, almacenado: str | None) -> bool:
+    def _verify_password(self, password: str, stored: str | None) -> bool:
         # Verificación defensiva: hash vacío/None/no-bcrypt -> False, nunca lanza.
         # (El jugador de sistema tiene contrasena_hash="" y no es autenticable.)
-        if not almacenado:
+        if not stored:
             return False
         try:
-            return bcrypt.checkpw(password.encode("utf-8"), almacenado.encode("utf-8"))
+            return bcrypt.checkpw(password.encode("utf-8"), stored.encode("utf-8"))
         except (ValueError, TypeError):
             return False
 
     def login(self, data: LoginRequest):
-        jugador = self.repo.get_by_login(data.identificador)
-        if jugador is None:
+        player = self.repo.get_by_login(data.identificador)
+        if player is None:
             return None
-        if not self._verify_password(data.contrasena, jugador.contrasena_hash):
+        if not self._verify_password(data.contrasena, player.contrasena_hash):
             return None
-        return self.repo.update_last_access(jugador)
+        return self.repo.update_last_access(player)

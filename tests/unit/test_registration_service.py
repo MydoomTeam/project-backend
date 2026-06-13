@@ -36,13 +36,13 @@ class FakeRegistrationRepository:
     def get_registration(self, torneo_id: int, jugador_id: int):
         return None
 
-    def save(self, inscripcion: RegistrationModel) -> RegistrationModel:
-        self.saved_registration = inscripcion
+    def save(self, registration: RegistrationModel) -> RegistrationModel:
+        self.saved_registration = registration
         return DummyRegistration(
             id=1,
-            torneo_id=inscripcion.torneo_id,
-            jugador_id=inscripcion.jugador_id,
-            estado=inscripcion.estado,
+            torneo_id=registration.torneo_id,
+            jugador_id=registration.jugador_id,
+            estado=registration.estado,
         )
 
 

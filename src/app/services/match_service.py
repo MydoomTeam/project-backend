@@ -51,127 +51,127 @@ _SLOT_PLAYER2 = 1
 
 class MatchService:
     def __init__(self, db: Session):
-        self.torneo_repo  = TournamentRepository(db)
+        self.tournament_repo  = TournamentRepository(db)
         self.match_repo   = MatchRepository(db)
-        self.jugador_repo = PlayerRepository(db)
+        self.player_repo = PlayerRepository(db)
         self.audit_repo   = AuditLogRepository(db)
 
     def get_ranking(self, torneo_id: int) -> RankingResponse:
-        torneo = self.torneo_repo.get_by_id(torneo_id)
-        if torneo is None:
+        tournament = self.tournament_repo.get_by_id(torneo_id)
+        if tournament is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Torneo no encontrado")
 
-        participantes = self.torneo_repo.get_confirmed_participants(torneo_id)
-        victorias = self.match_repo.get_wins_by_player(torneo_id)
+        participants = self.tournament_repo.get_confirmed_participants(torneo_id)
+        wins = self.match_repo.get_wins_by_player(torneo_id)
 
-        entradas = sorted(
-            [{"jugador_id": jid, "victorias": victorias.get(jid, 0), "elo_global": elo} for jid, elo in participantes],
-            key=lambda e: (-e["victorias"], -e["elo_global"]),
+        entries = sorted(
+            [{"player_id": jid, "wins": wins.get(jid, 0), "elo_global": elo} for jid, elo in participants],
+            key=lambda e: (-e["wins"], -e["elo_global"]),
         )
 
         ranking = [
-            RankingEntry(posicion=i + 1, jugador_id=e["jugador_id"], victorias=e["victorias"], elo_global=e["elo_global"])
-            for i, e in enumerate(entradas)
+            RankingEntry(posicion=i + 1, jugador_id=e["player_id"], wins=e["wins"], elo_global=e["elo_global"])
+            for i, e in enumerate(entries)
         ]
-        return RankingResponse(torneo_id=torneo_id, tipo_eliminacion=torneo.tipo_eliminacion, estado=torneo.estado, ranking=ranking)
+        return RankingResponse(torneo_id=torneo_id, tipo_eliminacion=tournament.tipo_eliminacion, estado=tournament.estado, ranking=ranking)
 
     def get_player_history(self, torneo_id: int, jugador_id: int) -> list[MatchResponse]:
-        torneo = self.torneo_repo.get_by_id(torneo_id)
-        if torneo is None:
+        tournament = self.tournament_repo.get_by_id(torneo_id)
+        if tournament is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Torneo no encontrado")
         matches = self.match_repo.get_player_history(torneo_id, jugador_id)
         return [MatchResponse.model_validate(m) for m in matches]
 
     def get_bracket(self, torneo_id: int) -> BracketResponse:
-        torneo = self.torneo_repo.get_by_id(torneo_id)
-        if torneo is None:
+        tournament = self.tournament_repo.get_by_id(torneo_id)
+        if tournament is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Torneo no encontrado")
         matches = self.match_repo.get_by_tournament(torneo_id)
         return BracketResponse(
             torneo_id=torneo_id,
-            estado_torneo=torneo.estado,
+            estado_torneo=tournament.estado,
             matches=[MatchResponse.model_validate(m) for m in matches],
         )
 
     def generate_bracket(self, torneo_id: int, admin_id: int) -> BracketResponse:
-        torneo = self.torneo_repo.get_by_id(torneo_id)
-        if torneo is None:
+        tournament = self.tournament_repo.get_by_id(torneo_id)
+        if tournament is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Torneo no encontrado")
-        if torneo.creador_id != admin_id:
+        if tournament.creador_id != admin_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Solo el administrador del torneo puede generar el cuadro de enfrentamiento",
             )
-        if torneo.estado != _STATUS_PENDING:
+        if tournament.estado != _STATUS_PENDING:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El periodo de inscripciones no está cerrado o el torneo ya fue procesado",
             )
 
-        participantes = self.torneo_repo.get_confirmed_participants(torneo_id)
-        min_req = _MIN_PARTICIPANTS.get(torneo.tipo_eliminacion, 2)
-        if len(participantes) < min_req:
+        participants = self.tournament_repo.get_confirmed_participants(torneo_id)
+        min_req = _MIN_PARTICIPANTS.get(tournament.tipo_eliminacion, 2)
+        if len(participants) < min_req:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Se requieren al menos {min_req} participantes confirmados para {torneo.tipo_eliminacion}",
+                detail=f"Se requieren al menos {min_req} participantes confirmados para {tournament.tipo_eliminacion}",
             )
 
-        match_models = self._build_match_models(torneo, torneo_id, participantes)
+        match_models = self._build_match_models(tournament, torneo_id, participants)
 
         match_models = self.match_repo.insert_batch(match_models)
         match_responses = [MatchResponse.model_validate(m) for m in match_models]
 
         self.audit_repo.record(accion="GENERAR_BRACKET", usuario_id=admin_id, fecha=datetime.now())
-        torneo = self.torneo_repo.update_status(torneo, _STATUS_READY_TO_START)
-        return BracketResponse(torneo_id=torneo_id, estado_torneo=torneo.estado, matches=match_responses)
+        tournament = self.tournament_repo.update_status(tournament, _STATUS_READY_TO_START)
+        return BracketResponse(torneo_id=torneo_id, estado_torneo=tournament.estado, matches=match_responses)
 
     def _build_match_models(
-        self, torneo, torneo_id: int, participantes: list[tuple[int, int]]
+        self, tournament, torneo_id: int, participants: list[tuple[int, int]]
     ) -> list[MatchModel]:
-        if torneo.tipo_eliminacion == _FORMAT_SINGLE:
-            return self._build_full_bracket(torneo_id, participantes)
-        if torneo.tipo_eliminacion == _FORMAT_DOUBLE:
-            return self._build_double_elimination(torneo_id, participantes)
-        if torneo.tipo_eliminacion in _FORMATS_ROUND_ROBIN:
-            return self._build_round_robin(torneo_id, participantes)
-        if torneo.tipo_eliminacion in _FORMATS_SWISS:
-            return self._build_swiss_round1(torneo_id, participantes)
+        if tournament.tipo_eliminacion == _FORMAT_SINGLE:
+            return self._build_full_bracket(torneo_id, participants)
+        if tournament.tipo_eliminacion == _FORMAT_DOUBLE:
+            return self._build_double_elimination(torneo_id, participants)
+        if tournament.tipo_eliminacion in _FORMATS_ROUND_ROBIN:
+            return self._build_round_robin(torneo_id, participants)
+        if tournament.tipo_eliminacion in _FORMATS_SWISS:
+            return self._build_swiss_round1(torneo_id, participants)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"El formato '{torneo.tipo_eliminacion}' no tiene generación de bracket implementada",
+            detail=f"El formato '{tournament.tipo_eliminacion}' no tiene generación de bracket implementada",
         )
 
     def start_tournament(self, torneo_id: int, admin_id: int) -> BracketResponse:
-        torneo = self.torneo_repo.get_by_id(torneo_id)
-        if torneo is None:
+        tournament = self.tournament_repo.get_by_id(torneo_id)
+        if tournament is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Torneo no encontrado")
-        if torneo.creador_id != admin_id:
+        if tournament.creador_id != admin_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Solo el administrador puede iniciar el torneo",
             )
-        if torneo.estado != _STATUS_READY_TO_START:
+        if tournament.estado != _STATUS_READY_TO_START:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El torneo no está en estado 'Listo para iniciar'",
             )
 
-        if torneo.tipo_eliminacion in _FORMATS_WITH_BRACKET:
+        if tournament.tipo_eliminacion in _FORMATS_WITH_BRACKET:
             self._activate_round1_with_bracket(torneo_id)
         else:
             for m in self.match_repo.get_by_tournament(torneo_id):
                 m.estado = _STATUS_IN_PROGRESS
 
-        torneo.estado = _STATUS_IN_PROGRESS
+        tournament.estado = _STATUS_IN_PROGRESS
         self.audit_repo.record(accion="INICIAR_TORNEO", usuario_id=admin_id, fecha=datetime.now())
         self.match_repo.flush()
         self.match_repo.commit()
-        self.match_repo.refresh(torneo)
+        self.match_repo.refresh(tournament)
 
         matches = self.match_repo.get_by_tournament(torneo_id)
         return BracketResponse(
             torneo_id=torneo_id,
-            estado_torneo=torneo.estado,
+            estado_torneo=tournament.estado,
             matches=[MatchResponse.model_validate(m) for m in matches],
         )
 
@@ -185,23 +185,23 @@ class MatchService:
                 m.estado = _STATUS_IN_PROGRESS
 
     def record_result(
-        self, torneo_id: int, match_id: int, ganador_id: int, admin_id: int
+        self, torneo_id: int, match_id: int, winner_id: int, admin_id: int
     ) -> ResultResponse:
-        torneo = self._get_tournament_in_progress(torneo_id, admin_id)
+        tournament = self._get_tournament_in_progress(torneo_id, admin_id)
         match = self._get_playable_match(torneo_id, match_id)
-        self._validate_winner(match, ganador_id)
+        self._validate_winner(match, winner_id)
 
-        perdedor_id = match.jugador2_id if ganador_id == match.jugador1_id else match.jugador1_id
-        nuevo_elo_g, nuevo_elo_p = self._apply_elo(ganador_id, perdedor_id)
+        loser_id = match.jugador2_id if winner_id == match.jugador1_id else match.jugador1_id
+        new_winner_elo, new_loser_elo = self._apply_elo(winner_id, loser_id)
 
-        match.ganador_id = ganador_id
+        match.ganador_id = winner_id
         match.estado = _STATUS_FINISHED
 
-        torneo_finalizado = self._advance_by_format(torneo_id, torneo, match, ganador_id, perdedor_id)
+        tournament_finished = self._advance_by_format(torneo_id, tournament, match, winner_id, loser_id)
 
         self.audit_repo.record(accion="REGISTRAR_RESULTADO", usuario_id=admin_id, fecha=datetime.now())
-        if torneo_finalizado:
-            torneo.estado = _STATUS_FINISHED
+        if tournament_finished:
+            tournament.estado = _STATUS_FINISHED
             self.audit_repo.record(accion="FINALIZAR_TORNEO", usuario_id=admin_id, fecha=datetime.now())
 
         self.match_repo.flush()
@@ -210,26 +210,26 @@ class MatchService:
 
         return ResultResponse(
             match=MatchResponse.model_validate(match),
-            ganador_nuevo_elo=nuevo_elo_g,
-            perdedor_nuevo_elo=nuevo_elo_p,
-            torneo_finalizado=torneo_finalizado,
+            ganador_nuevo_elo=new_winner_elo,
+            perdedor_nuevo_elo=new_loser_elo,
+            torneo_finalizado=tournament_finished,
         )
 
     def _get_tournament_in_progress(self, torneo_id: int, admin_id: int):
-        torneo = self.torneo_repo.get_by_id(torneo_id)
-        if torneo is None:
+        tournament = self.tournament_repo.get_by_id(torneo_id)
+        if tournament is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Torneo no encontrado")
-        if torneo.creador_id != admin_id:
+        if tournament.creador_id != admin_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Solo el administrador puede registrar resultados",
             )
-        if torneo.estado != _STATUS_IN_PROGRESS:
+        if tournament.estado != _STATUS_IN_PROGRESS:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El torneo no está en curso",
             )
-        return torneo
+        return tournament
 
     def _get_playable_match(self, torneo_id: int, match_id: int) -> MatchModel:
         match = self.match_repo.get_by_id(match_id)
@@ -243,43 +243,43 @@ class MatchService:
         return match
 
     @staticmethod
-    def _validate_winner(match: MatchModel, ganador_id: int) -> None:
-        if ganador_id not in (match.jugador1_id, match.jugador2_id):
+    def _validate_winner(match: MatchModel, winner_id: int) -> None:
+        if winner_id not in (match.jugador1_id, match.jugador2_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El ganador debe ser uno de los participantes del enfrentamiento",
             )
 
-    def _apply_elo(self, ganador_id: int, perdedor_id: int) -> tuple[int, int]:
-        ganador_obj  = self.jugador_repo.get_by_id(ganador_id)
-        perdedor_obj = self.jugador_repo.get_by_id(perdedor_id)
-        nuevo_elo_g, nuevo_elo_p = self._compute_new_elo(ganador_obj.elo_global, perdedor_obj.elo_global)
-        ganador_obj.elo_global  = nuevo_elo_g
-        perdedor_obj.elo_global = nuevo_elo_p
-        return nuevo_elo_g, nuevo_elo_p
+    def _apply_elo(self, winner_id: int, loser_id: int) -> tuple[int, int]:
+        winner  = self.player_repo.get_by_id(winner_id)
+        loser = self.player_repo.get_by_id(loser_id)
+        new_winner_elo, new_loser_elo = self._compute_new_elo(winner.elo_global, loser.elo_global)
+        winner.elo_global  = new_winner_elo
+        loser.elo_global = new_loser_elo
+        return new_winner_elo, new_loser_elo
 
     def _advance_by_format(
-        self, torneo_id: int, torneo, match: MatchModel, ganador_id: int, perdedor_id: int
+        self, torneo_id: int, tournament, match: MatchModel, winner_id: int, loser_id: int
     ) -> bool:
-        if torneo.tipo_eliminacion == _FORMAT_SINGLE:
+        if tournament.tipo_eliminacion == _FORMAT_SINGLE:
             return self._advance_winner_single(torneo_id, match) is None
-        if torneo.tipo_eliminacion == _FORMAT_DOUBLE:
-            return self._process_double_result(torneo_id, match, ganador_id, perdedor_id)
-        if torneo.tipo_eliminacion in _FORMATS_SWISS:
-            return self._advance_swiss(torneo_id, torneo, match)
+        if tournament.tipo_eliminacion == _FORMAT_DOUBLE:
+            return self._process_double_result(torneo_id, match, winner_id, loser_id)
+        if tournament.tipo_eliminacion in _FORMATS_SWISS:
+            return self._advance_swiss(torneo_id, tournament, match)
         self.match_repo.flush()
         return self.match_repo.count_active_by_tournament(torneo_id) == 0
 
-    def _advance_swiss(self, torneo_id: int, torneo, match: MatchModel) -> bool:
+    def _advance_swiss(self, torneo_id: int, tournament, match: MatchModel) -> bool:
         self.match_repo.flush()
-        ronda_actual = match.ronda
-        if self.match_repo.count_active_by_round(torneo_id, ronda_actual) != 0:
+        current_round = match.ronda
+        if self.match_repo.count_active_by_round(torneo_id, current_round) != 0:
             return False
-        ronda_siguiente = ronda_actual + 1
-        if ronda_siguiente > torneo.rondas:
+        next_round = current_round + 1
+        if next_round > tournament.rondas:
             return True
-        nuevos = self._build_swiss_next_round(torneo_id, ronda_siguiente)
-        self.match_repo.insert_batch(nuevos)
+        new_matches = self._build_swiss_next_round(torneo_id, next_round)
+        self.match_repo.insert_batch(new_matches)
         return False
 
     @staticmethod
@@ -292,80 +292,80 @@ class MatchService:
             match.estado = _STATUS_IN_PROGRESS
 
     def _advance_winner_single(self, torneo_id: int, match: MatchModel) -> MatchModel | None:
-        siguiente = self.match_repo.get_by_tournament_round_position(
+        next_match = self.match_repo.get_by_tournament_round_position(
             torneo_id=torneo_id,
             ronda=match.ronda + 1,
             posicion=match.posicion // 2,
         )
-        if siguiente is None:
+        if next_match is None:
             return None
-        self._place_in_slot(siguiente, match.posicion % 2, match.ganador_id)
-        return siguiente
+        self._place_in_slot(next_match, match.posicion % 2, match.ganador_id)
+        return next_match
 
     def _process_double_result(
-        self, torneo_id: int, match: MatchModel, ganador_id: int, perdedor_id: int
+        self, torneo_id: int, match: MatchModel, winner_id: int, loser_id: int
     ) -> bool:
         if match.bracket_tipo == _BRACKET_WINNERS:
-            self._advance_winner_double(torneo_id, match, ganador_id)
-            self._send_loser_to_losers(torneo_id, match, perdedor_id)
+            self._advance_winner_double(torneo_id, match, winner_id)
+            self._send_loser_to_losers(torneo_id, match, loser_id)
             return False
         if match.bracket_tipo == _BRACKET_LOSERS:
-            self._advance_in_losers(torneo_id, match, ganador_id)
+            self._advance_in_losers(torneo_id, match, winner_id)
             return False
         if match.bracket_tipo == _BRACKET_GRAND_FINAL:
             return True
         return False
 
-    def _advance_winner_double(self, torneo_id: int, match: MatchModel, ganador_id: int) -> None:
-        siguiente = self.match_repo.get_by_tournament_round_position_bracket(
+    def _advance_winner_double(self, torneo_id: int, match: MatchModel, winner_id: int) -> None:
+        next_match = self.match_repo.get_by_tournament_round_position_bracket(
             torneo_id=torneo_id,
             ronda=match.ronda + 1,
             posicion=match.posicion // 2,
             bracket_tipo=_BRACKET_WINNERS,
         )
-        if siguiente is not None:
-            self._place_in_slot(siguiente, match.posicion % 2, ganador_id)
+        if next_match is not None:
+            self._place_in_slot(next_match, match.posicion % 2, winner_id)
         else:
-            self._place_in_grand_final(torneo_id, _SLOT_PLAYER1, ganador_id)
+            self._place_in_grand_final(torneo_id, _SLOT_PLAYER1, winner_id)
 
-    def _send_loser_to_losers(self, torneo_id: int, match: MatchModel, perdedor_id: int) -> None:
-        lb_ronda, lb_pos, lb_slot = self._loser_route_to_losers(match.ronda, match.posicion)
-        siguiente = self.match_repo.get_by_tournament_round_position_bracket(
-            torneo_id=torneo_id, ronda=lb_ronda, posicion=lb_pos, bracket_tipo=_BRACKET_LOSERS,
+    def _send_loser_to_losers(self, torneo_id: int, match: MatchModel, loser_id: int) -> None:
+        lb_round, lb_pos, lb_slot = self._loser_route_to_losers(match.ronda, match.posicion)
+        next_match = self.match_repo.get_by_tournament_round_position_bracket(
+            torneo_id=torneo_id, ronda=lb_round, posicion=lb_pos, bracket_tipo=_BRACKET_LOSERS,
         )
-        if siguiente is not None:
-            self._place_in_slot(siguiente, lb_slot, perdedor_id)
+        if next_match is not None:
+            self._place_in_slot(next_match, lb_slot, loser_id)
 
-    def _advance_in_losers(self, torneo_id: int, match: MatchModel, ganador_id: int) -> None:
+    def _advance_in_losers(self, torneo_id: int, match: MatchModel, winner_id: int) -> None:
         if match.ronda % 2 == 1:
             next_pos, next_slot = match.posicion, _SLOT_PLAYER1
         else:
             next_pos, next_slot = match.posicion // 2, match.posicion % 2
 
-        siguiente = self.match_repo.get_by_tournament_round_position_bracket(
+        next_match = self.match_repo.get_by_tournament_round_position_bracket(
             torneo_id=torneo_id,
             ronda=match.ronda + 1,
             posicion=next_pos,
             bracket_tipo=_BRACKET_LOSERS,
         )
-        if siguiente is not None:
-            self._place_in_slot(siguiente, next_slot, ganador_id)
+        if next_match is not None:
+            self._place_in_slot(next_match, next_slot, winner_id)
         else:
-            self._place_in_grand_final(torneo_id, _SLOT_PLAYER2, ganador_id)
+            self._place_in_grand_final(torneo_id, _SLOT_PLAYER2, winner_id)
 
     def _place_in_grand_final(self, torneo_id: int, slot: int, jugador_id: int) -> None:
-        gran_final = self.match_repo.get_by_tournament_round_position_bracket(
+        grand_final = self.match_repo.get_by_tournament_round_position_bracket(
             torneo_id=torneo_id, ronda=1, posicion=0, bracket_tipo=_BRACKET_GRAND_FINAL,
         )
-        if gran_final is not None:
-            self._place_in_slot(gran_final, slot, jugador_id)
+        if grand_final is not None:
+            self._place_in_slot(grand_final, slot, jugador_id)
 
     @staticmethod
-    def _loser_route_to_losers(wb_ronda: int, wb_posicion: int) -> tuple[int, int, int]:
-        if wb_ronda == 1:
-            return 1, wb_posicion // 2, wb_posicion % 2
-        lb_ronda = (wb_ronda - 1) * 2
-        return lb_ronda, wb_posicion, 1
+    def _loser_route_to_losers(wb_round: int, wb_position: int) -> tuple[int, int, int]:
+        if wb_round == 1:
+            return 1, wb_position // 2, wb_position % 2
+        lb_round = (wb_round - 1) * 2
+        return lb_round, wb_position, 1
 
     @staticmethod
     def _k_factor(elo: int) -> int:
@@ -376,15 +376,15 @@ class MatchService:
         return _ELO_K_ELITE
 
     @staticmethod
-    def _compute_new_elo(elo_ganador: int, elo_perdedor: int) -> tuple[int, int]:
+    def _compute_new_elo(winner_elo: int, loser_elo: int) -> tuple[int, int]:
         expected_winner = _POINTS_WIN / (
-            _POINTS_WIN + _ELO_BASE ** ((elo_perdedor - elo_ganador) / _ELO_SCALE)
+            _POINTS_WIN + _ELO_BASE ** ((loser_elo - winner_elo) / _ELO_SCALE)
         )
-        k_winner = MatchService._k_factor(elo_ganador)
-        k_loser  = MatchService._k_factor(elo_perdedor)
-        nuevo_ganador  = round(elo_ganador + k_winner * (_POINTS_WIN - expected_winner))
-        nuevo_perdedor = round(elo_perdedor + k_loser * (_POINTS_LOSS - expected_winner))
-        return nuevo_ganador, nuevo_perdedor
+        k_winner = MatchService._k_factor(winner_elo)
+        k_loser  = MatchService._k_factor(loser_elo)
+        new_winner_elo  = round(winner_elo + k_winner * (_POINTS_WIN - expected_winner))
+        new_loser_elo = round(loser_elo + k_loser * (_POINTS_LOSS - expected_winner))
+        return new_winner_elo, new_loser_elo
 
     @staticmethod
     def _next_power_of_two(n: int) -> int:
@@ -394,23 +394,23 @@ class MatchService:
         return p
 
     def _seed_round1_winners(
-        self, torneo_id: int, participantes: list[tuple[int, int]]
+        self, torneo_id: int, participants: list[tuple[int, int]]
     ) -> list[MatchModel]:
-        n = len(participantes)
+        n = len(participants)
         p = self._next_power_of_two(n)
         bye_count = p - n
 
         matches: list[MatchModel] = []
         for pos in range(p // 2):
             if pos < bye_count:
-                j1_id = participantes[pos][0]
+                j1_id = participants[pos][0]
                 j2_id = None
             else:
                 offset = pos - bye_count
                 p1_idx = bye_count + offset * 2
                 p2_idx = p1_idx + 1
-                j1_id = participantes[p1_idx][0]
-                j2_id = participantes[p2_idx][0] if p2_idx < n else None
+                j1_id = participants[p1_idx][0]
+                j2_id = participants[p2_idx][0] if p2_idx < n else None
             matches.append(MatchModel(
                 torneo_id=torneo_id, ronda=1, posicion=pos,
                 bracket_tipo=_BRACKET_WINNERS,
@@ -420,10 +420,10 @@ class MatchService:
         return matches
 
     def _empty_winners_rounds(
-        self, torneo_id: int, p: int, desde: int, hasta: int
+        self, torneo_id: int, p: int, start: int, end: int
     ) -> list[MatchModel]:
         matches: list[MatchModel] = []
-        for ronda in range(desde, hasta + 1):
+        for ronda in range(start, end + 1):
             for pos in range(p // (2 ** ronda)):
                 matches.append(MatchModel(
                     torneo_id=torneo_id, ronda=ronda, posicion=pos,
@@ -434,29 +434,29 @@ class MatchService:
         return matches
 
     def _build_full_bracket(
-        self, torneo_id: int, participantes: list[tuple[int, int]]
+        self, torneo_id: int, participants: list[tuple[int, int]]
     ) -> list[MatchModel]:
-        p = self._next_power_of_two(len(participantes))
-        total_rondas = p.bit_length() - 1
+        p = self._next_power_of_two(len(participants))
+        total_rounds = p.bit_length() - 1
         return (
-            self._seed_round1_winners(torneo_id, participantes)
-            + self._empty_winners_rounds(torneo_id, p, 2, total_rondas)
+            self._seed_round1_winners(torneo_id, participants)
+            + self._empty_winners_rounds(torneo_id, p, 2, total_rounds)
         )
 
     def _build_double_elimination(
-        self, torneo_id: int, participantes: list[tuple[int, int]]
+        self, torneo_id: int, participants: list[tuple[int, int]]
     ) -> list[MatchModel]:
-        p = self._next_power_of_two(len(participantes))
-        wb_rondas = p.bit_length() - 1
-        lb_rondas = (wb_rondas - 1) * 2
+        p = self._next_power_of_two(len(participants))
+        wb_rounds = p.bit_length() - 1
+        lb_rounds = (wb_rounds - 1) * 2
 
-        all_matches = self._seed_round1_winners(torneo_id, participantes)
-        all_matches += self._empty_winners_rounds(torneo_id, p, 2, wb_rondas)
+        all_matches = self._seed_round1_winners(torneo_id, participants)
+        all_matches += self._empty_winners_rounds(torneo_id, p, 2, wb_rounds)
 
-        for ronda in range(1, lb_rondas + 1):
+        for ronda in range(1, lb_rounds + 1):
             k = (ronda + 1) // 2
-            matches_en_ronda = p // (2 ** (k + 1))
-            for pos in range(matches_en_ronda):
+            matches_in_round = p // (2 ** (k + 1))
+            for pos in range(matches_in_round):
                 all_matches.append(MatchModel(
                     torneo_id=torneo_id, ronda=ronda, posicion=pos,
                     bracket_tipo=_BRACKET_LOSERS,
@@ -474,56 +474,56 @@ class MatchService:
         return all_matches
 
     def _build_round_robin(
-        self, torneo_id: int, participantes: list[tuple[int, int]]
+        self, torneo_id: int, participants: list[tuple[int, int]]
     ) -> list[MatchModel]:
         matches: list[MatchModel] = []
-        n = len(participantes)
+        n = len(participants)
         pos = 0
         for i in range(n):
             for j in range(i + 1, n):
                 matches.append(MatchModel(
                     torneo_id=torneo_id, ronda=1, posicion=pos,
                     bracket_tipo=_BRACKET_WINNERS,
-                    jugador1_id=participantes[i][0], jugador2_id=participantes[j][0],
+                    jugador1_id=participants[i][0], jugador2_id=participants[j][0],
                     ganador_id=None, estado=_STATUS_SCHEDULED,
                 ))
                 pos += 1
         return matches
 
     def _build_swiss_round1(
-        self, torneo_id: int, participantes: list[tuple[int, int]]
+        self, torneo_id: int, participants: list[tuple[int, int]]
     ) -> list[MatchModel]:
-        ordenados = sorted(participantes, key=lambda x: x[1], reverse=True)
-        return self._pair_swiss(torneo_id, ronda=1, jugadores=[j[0] for j in ordenados], pares_jugados=set())
+        ordered = sorted(participants, key=lambda x: x[1], reverse=True)
+        return self._pair_swiss(torneo_id, ronda=1, players=[j[0] for j in ordered], played_pairs=set())
 
     def _build_swiss_next_round(self, torneo_id: int, ronda: int) -> list[MatchModel]:
-        participantes = self.torneo_repo.get_confirmed_participants(torneo_id)
-        ids = {j[0] for j in participantes}
+        participants = self.tournament_repo.get_confirmed_participants(torneo_id)
+        ids = {j[0] for j in participants}
 
-        victorias = self.match_repo.get_wins_by_player(torneo_id)
-        pares_jugados = self.match_repo.get_played_pairs(torneo_id)
+        wins = self.match_repo.get_wins_by_player(torneo_id)
+        played_pairs = self.match_repo.get_played_pairs(torneo_id)
 
-        jugadores_ordenados = sorted(ids, key=lambda jid: victorias.get(jid, 0), reverse=True)
-        return self._pair_swiss(torneo_id, ronda, jugadores_ordenados, pares_jugados)
+        ordered_players = sorted(ids, key=lambda jid: wins.get(jid, 0), reverse=True)
+        return self._pair_swiss(torneo_id, ronda, ordered_players, played_pairs)
 
     @staticmethod
     def _pair_swiss(
-        torneo_id: int, ronda: int, jugadores: list[int], pares_jugados: set[tuple[int, int]]
+        torneo_id: int, ronda: int, players: list[int], played_pairs: set[tuple[int, int]]
     ) -> list[MatchModel]:
         matches: list[MatchModel] = []
-        disponibles = list(jugadores)
+        available = list(players)
         pos = 0
 
-        while len(disponibles) >= 2:
-            j1 = disponibles.pop(0)
+        while len(available) >= 2:
+            j1 = available.pop(0)
             rival = None
-            for i, j2 in enumerate(disponibles):
-                par = (min(j1, j2), max(j1, j2))
-                if par not in pares_jugados:
-                    rival = disponibles.pop(i)
+            for i, j2 in enumerate(available):
+                pair = (min(j1, j2), max(j1, j2))
+                if pair not in played_pairs:
+                    rival = available.pop(i)
                     break
             if rival is None:
-                rival = disponibles.pop(0)
+                rival = available.pop(0)
 
             matches.append(MatchModel(
                 torneo_id=torneo_id, ronda=ronda, posicion=pos,
@@ -533,13 +533,13 @@ class MatchService:
             ))
             pos += 1
 
-        if disponibles:
-            bye_jugador = disponibles[0]
+        if available:
+            bye_player = available[0]
             matches.append(MatchModel(
                 torneo_id=torneo_id, ronda=ronda, posicion=pos,
                 bracket_tipo=_BRACKET_WINNERS,
-                jugador1_id=bye_jugador, jugador2_id=None,
-                ganador_id=bye_jugador, estado=_STATUS_FINISHED,
+                jugador1_id=bye_player, jugador2_id=None,
+                ganador_id=bye_player, estado=_STATUS_FINISHED,
             ))
 
         return matches
