@@ -25,6 +25,23 @@ class TestComputeNewElo(unittest.TestCase):
         self.assertGreater(underdog_new_elo - 800, favorite_new_elo - 1600)
 
 
+class TestKFactor(unittest.TestCase):
+    def test_new_player_below_threshold(self):
+        self.assertEqual(MatchService._k_factor(999), 40)
+
+    def test_lower_boundary_is_standard(self):
+        self.assertEqual(MatchService._k_factor(1000), 32)
+
+    def test_standard_upper_value(self):
+        self.assertEqual(MatchService._k_factor(1999), 32)
+
+    def test_elite_boundary(self):
+        self.assertEqual(MatchService._k_factor(2000), 16)
+
+    def test_elite_above_threshold(self):
+        self.assertEqual(MatchService._k_factor(2001), 16)
+
+
 class TestBuildCompleteBracket(unittest.TestCase):
     def _service(self):
         return object.__new__(MatchService)
@@ -50,6 +67,27 @@ class TestBuildCompleteBracket(unittest.TestCase):
 
         round2 = [m for m in matches if m.round == 2]
         self.assertTrue(all(m.player1_id is None and m.player2_id is None for m in round2))
+
+    def test_minimum_two_players_single_match_no_bye(self):
+        participants = [(1, 1500), (2, 1400)]
+        matches = self._service()._build_full_bracket(1, participants)
+
+        self.assertEqual(len(matches), 1)
+        self.assertEqual({m.round for m in matches}, {1})
+        only_match = matches[0]
+        self.assertEqual(only_match.player1_id, 1)
+        self.assertEqual(only_match.player2_id, 2)
+
+    def test_seven_players_single_bye_to_top_seed(self):
+        participants = [(i, 2100 - i * 100) for i in range(1, 8)]
+        matches = self._service()._build_full_bracket(1, participants)
+
+        self.assertEqual({m.round for m in matches}, {1, 2, 3})
+        round1 = [m for m in matches if m.round == 1]
+        self.assertEqual(len(round1), 4)
+        byes = [m for m in round1 if m.player2_id is None]
+        self.assertEqual(len(byes), 1)
+        self.assertEqual(byes[0].player1_id, 1)
 
 
 class TestBuildRoundRobin(unittest.TestCase):

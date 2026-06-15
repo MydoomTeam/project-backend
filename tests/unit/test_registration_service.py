@@ -61,7 +61,7 @@ class TestRegistrationService(unittest.TestCase):
         registration_service_module.RegistrationRepository = self.original_registration_repository
         registration_service_module.TournamentRepository = self.original_tournament_repository
 
-    def test_successful_registration_forces_confirmed_status(self):
+    def test_successful_registration_creates_pending_status(self):
         fake_registration_repo = FakeRegistrationRepository(already_registered=False)
         fake_tournament_repo = FakeTournamentRepository(DummyTournament(status="Pendiente"))
         registration_service_module.RegistrationRepository = lambda db: fake_registration_repo
@@ -73,10 +73,10 @@ class TestRegistrationService(unittest.TestCase):
         self.assertEqual(result.id, 1)
         self.assertEqual(result.tournament_id, 9)
         self.assertEqual(result.player_id, 5)
-        self.assertEqual(result.status, "Confirmado")
+        self.assertEqual(result.status, "Por confirmar")
         self.assertEqual(fake_registration_repo.saved_registration.tournament_id, 9)
         self.assertEqual(fake_registration_repo.saved_registration.player_id, 5)
-        self.assertEqual(fake_registration_repo.saved_registration.status, "Confirmado")
+        self.assertEqual(fake_registration_repo.saved_registration.status, "Por confirmar")
 
     def test_registration_rejects_nonexistent_tournament(self):
         fake_registration_repo = FakeRegistrationRepository(already_registered=False)

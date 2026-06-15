@@ -1,5 +1,5 @@
 import unittest
-from datetime import date
+from datetime import datetime
 from unittest.mock import Mock
 
 from fastapi import HTTPException
@@ -26,7 +26,7 @@ class TestAlertServiceValidation(unittest.TestCase):
         mock_alert.id = 1
         mock_alert.event_type = "match_overdue"
         mock_alert.message = "Match vencido"
-        mock_alert.datetime = date.today()
+        mock_alert.created_at = datetime(2026, 6, 14, 12, 0)
         mock_alert.read_status = "no_leido"
 
         self.mock_alert_repo.get_all.return_value = [mock_alert]
@@ -94,7 +94,7 @@ class TestAlertServiceValidation(unittest.TestCase):
         mock_alert.id = 1
         mock_alert.event_type = "match_overdue"
         mock_alert.message = "Test alert"
-        mock_alert.datetime = date.today()
+        mock_alert.created_at = datetime(2026, 6, 14, 12, 0)
         mock_alert.read_status = "leido"
 
         self.mock_alert_repo.get_all.return_value = [mock_alert]

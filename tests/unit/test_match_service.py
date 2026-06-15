@@ -63,7 +63,7 @@ class FakeAuditLogRepository:
     def __init__(self):
         self.actions: list[str] = []
 
-    def record(self, action, user_id, created_at):
+    def record(self, action, user_id, created_at, change_description=None):
         self.actions.append(action)
 
 
