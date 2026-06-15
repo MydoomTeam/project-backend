@@ -24,6 +24,9 @@ class TournamentService:
     def get_available_tournaments(self) -> list[TournamentModel]:
         return self.repo.list_available()
 
+    def get_all_tournaments(self) -> list[TournamentModel]:
+        return self.repo.list_all()
+
     def get_tournament_detail(self, tournament_id: int) -> TournamentDetailResponse:
         result = self.repo.get_detail_with_creator(tournament_id)
         if result is None:
@@ -36,8 +39,16 @@ class TournamentService:
             id=tournament.id,
             name=tournament.name,
             elimination_type=tournament.elimination_type,
+            game_name=tournament.game_name,
+            game_category=tournament.game_category,
+            participant_target=tournament.participant_target,
             rounds=tournament.rounds,
+            round_duration_minutes=tournament.round_duration_minutes,
             status=tournament.status,
+            start_date=tournament.start_date,
+            end_date=tournament.end_date,
+            language=tournament.language,
+            region=tournament.region,
             creator_id=tournament.creator_id,
             creator_name=creator_name,
             total_participants=total_participants,
@@ -87,8 +98,16 @@ class TournamentService:
         tournament = TournamentModel(
             name=data.name,
             elimination_type=data.elimination_type,
+            game_name=data.game_name,
+            game_category=data.game_category,
+            participant_target=data.participant_target,
             rounds=data.rounds,
+            round_duration_minutes=data.round_duration_minutes,
             status="Pendiente",
+            start_date=data.start_date,
+            end_date=data.end_date,
+            language=data.language,
+            region=data.region,
             creator_id=creator_id,
         )
         self.audit_repo.record(action="CREAR_TORNEO", user_id=creator_id, created_at=datetime.now())

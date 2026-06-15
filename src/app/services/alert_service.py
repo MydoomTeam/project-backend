@@ -37,6 +37,6 @@ class AlertService:
             id=alert.id,
             event_type=alert.event_type,
             message=alert.message,
-            created_at=alert.datetime,
+            created_at=alert.created_at,
             status=alert.read_status,
         )

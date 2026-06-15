@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.match import MatchModel
 from app.repositories.audit_log_repository import AuditLogRepository
+from app.repositories.elo_history_repository import EloHistoryRepository
 from app.repositories.player_repository import PlayerRepository
 from app.repositories.match_repository import MatchRepository
 from app.repositories.tournament_repository import TournamentRepository
@@ -55,6 +56,7 @@ class MatchService:
         self.match_repo   = MatchRepository(db)
         self.player_repo = PlayerRepository(db)
         self.audit_repo   = AuditLogRepository(db)
+        self.elo_history_repo = EloHistoryRepository(db)
 
     def get_ranking(self, tournament_id: int) -> RankingResponse:
         tournament = self.tournament_repo.get_by_id(tournament_id)
@@ -119,11 +121,69 @@ class MatchService:
         match_models = self._build_match_models(tournament, tournament_id, participants)
 
         match_models = self.match_repo.insert_batch(match_models)
+        self._assign_next_match_ids(match_models, tournament.elimination_type)
+        self.match_repo.flush()
         match_responses = [MatchResponse.model_validate(m) for m in match_models]
 
-        self.audit_repo.record(action="GENERAR_BRACKET", user_id=admin_id, created_at=datetime.now())
+        self.audit_repo.record(
+            action="GENERAR_BRACKET",
+            user_id=admin_id,
+            created_at=datetime.now(),
+            change_description=f"tournament_id={tournament_id}",
+        )
         tournament = self.tournament_repo.update_status(tournament, _STATUS_READY_TO_START)
         return BracketResponse(tournament_id=tournament_id, tournament_status=tournament.status, matches=match_responses)
+
+    @staticmethod
+    def _assign_next_match_ids(matches: list[MatchModel], elimination_type: str) -> None:
+        if elimination_type not in {_FORMAT_SINGLE, _FORMAT_DOUBLE}:
+            return
+
+        winners_matches = [match for match in matches if match.bracket_type == _BRACKET_WINNERS]
+        winners_index = {
+            (match.round, match.position): match
+            for match in winners_matches
+        }
+
+        grand_final = next(
+            (match for match in matches if match.bracket_type == _BRACKET_GRAND_FINAL),
+            None,
+        )
+
+        for match in winners_matches:
+            next_match = winners_index.get((match.round + 1, match.position // 2))
+            if next_match is not None:
+                match.next_match_id = next_match.id
+            elif elimination_type == _FORMAT_DOUBLE and grand_final is not None:
+                match.next_match_id = grand_final.id
+            else:
+                match.next_match_id = None
+
+        if elimination_type != _FORMAT_DOUBLE:
+            return
+
+        losers_matches = [match for match in matches if match.bracket_type == _BRACKET_LOSERS]
+        losers_index = {
+            (match.round, match.position): match
+            for match in losers_matches
+        }
+
+        for match in losers_matches:
+            if match.round % 2 == 1:
+                next_key = (match.round + 1, match.position)
+            else:
+                next_key = (match.round + 1, match.position // 2)
+
+            next_match = losers_index.get(next_key)
+            if next_match is not None:
+                match.next_match_id = next_match.id
+            elif grand_final is not None:
+                match.next_match_id = grand_final.id
+            else:
+                match.next_match_id = None
+
+        if grand_final is not None:
+            grand_final.next_match_id = None
 
     def _build_match_models(
         self, tournament, tournament_id: int, participants: list[tuple[int, int]]
@@ -163,7 +223,12 @@ class MatchService:
                 m.status = _STATUS_IN_PROGRESS
 
         tournament.status = _STATUS_IN_PROGRESS
-        self.audit_repo.record(action="INICIAR_TORNEO", user_id=admin_id, created_at=datetime.now())
+        self.audit_repo.record(
+            action="INICIAR_TORNEO",
+            user_id=admin_id,
+            created_at=datetime.now(),
+            change_description=f"tournament_id={tournament_id}",
+        )
         self.match_repo.flush()
         self.match_repo.commit()
         self.match_repo.refresh(tournament)
@@ -192,17 +257,29 @@ class MatchService:
         self._validate_winner(match, winner_id)
 
         loser_id = match.player2_id if winner_id == match.player1_id else match.player1_id
-        new_winner_elo, new_loser_elo = self._apply_elo(winner_id, loser_id)
+        new_winner_elo, new_loser_elo = self._apply_elo(winner_id, loser_id, match_id=match.id)
 
         match.winner_id = winner_id
+        match.result = f"Ganador: jugador {winner_id}"
+        match.score_detail = f"winner_id={winner_id}"
         match.status = _STATUS_FINISHED
 
         tournament_finished = self._advance_by_format(tournament_id, tournament, match, winner_id, loser_id)
 
-        self.audit_repo.record(action="REGISTRAR_RESULTADO", user_id=admin_id, created_at=datetime.now())
+        self.audit_repo.record(
+            action="REGISTRAR_RESULTADO",
+            user_id=admin_id,
+            created_at=datetime.now(),
+            change_description=f"match_id={match.id},winner_id={winner_id}",
+        )
         if tournament_finished:
             tournament.status = _STATUS_FINISHED
-            self.audit_repo.record(action="FINALIZAR_TORNEO", user_id=admin_id, created_at=datetime.now())
+            self.audit_repo.record(
+                action="FINALIZAR_TORNEO",
+                user_id=admin_id,
+                created_at=datetime.now(),
+                change_description=f"tournament_id={tournament_id}",
+            )
 
         self.match_repo.flush()
         self.match_repo.commit()
@@ -250,12 +327,16 @@ class MatchService:
                 detail="El ganador debe ser uno de los participantes del enfrentamiento",
             )
 
-    def _apply_elo(self, winner_id: int, loser_id: int) -> tuple[int, int]:
+    def _apply_elo(self, winner_id: int, loser_id: int, match_id: int = 0) -> tuple[int, int]:
         winner  = self.player_repo.get_by_id(winner_id)
         loser = self.player_repo.get_by_id(loser_id)
-        new_winner_elo, new_loser_elo = self._compute_new_elo(winner.global_elo, loser.global_elo)
+        prev_winner_elo = winner.global_elo
+        prev_loser_elo  = loser.global_elo
+        new_winner_elo, new_loser_elo = self._compute_new_elo(prev_winner_elo, prev_loser_elo)
         winner.global_elo  = new_winner_elo
         loser.global_elo = new_loser_elo
+        self.elo_history_repo.record(winner_id, match_id, prev_winner_elo, new_winner_elo)
+        self.elo_history_repo.record(loser_id,  match_id, prev_loser_elo,  new_loser_elo)
         return new_winner_elo, new_loser_elo
 
     def _advance_by_format(

@@ -5,6 +5,7 @@ from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.schemas.match import MatchResponse, ResultRequest, ResultResponse
 from app.schemas.registration import RegistrationResponse
+from app.schemas.registration import RegistrationListItem, RegistrationStatusUpdate
 from app.schemas.tournament import (
     BracketResponse,
     RankingResponse,
@@ -25,7 +26,17 @@ def list_available_tournaments(
     db: Session = Depends(get_db),
     _player_id: int = Depends(get_current_user),
 ) -> list[TournamentListResponse]:
-    return TournamentService(db).get_available_tournaments()
+    tournaments = TournamentService(db).get_available_tournaments()
+    return [TournamentListResponse.model_validate(item) for item in tournaments]
+
+
+@router.get("/tournaments", response_model=list[TournamentListResponse])
+def list_all_tournaments(
+    db: Session = Depends(get_db),
+    _player_id: int = Depends(get_current_user),
+) -> list[TournamentListResponse]:
+    tournaments = TournamentService(db).get_all_tournaments()
+    return [TournamentListResponse.model_validate(item) for item in tournaments]
 
 
 @router.post("/tournaments", response_model=TournamentResponse, status_code=status.HTTP_201_CREATED)
@@ -34,7 +45,8 @@ def create_tournament(
     db: Session = Depends(get_db),
     creator_id: int = Depends(get_current_user),
 ) -> TournamentResponse:
-    return TournamentService(db).create_tournament(payload, creator_id)
+    tournament = TournamentService(db).create_tournament(payload, creator_id)
+    return TournamentResponse.model_validate(tournament)
 
 
 @router.post(
@@ -47,7 +59,40 @@ def register_in_tournament(
     db: Session = Depends(get_db),
     player_id: int = Depends(get_current_user),
 ) -> RegistrationResponse:
-    return RegistrationService(db).register(tournament_id, player_id)
+    registration = RegistrationService(db).register(tournament_id, player_id)
+    return RegistrationResponse.model_validate(registration)
+
+
+@router.get(
+    "/tournaments/{tournament_id}/registrations",
+    response_model=list[RegistrationListItem],
+)
+def list_tournament_registrations(
+    tournament_id: int,
+    db: Session = Depends(get_db),
+    admin_id: int = Depends(get_current_user),
+) -> list[RegistrationListItem]:
+    return RegistrationService(db).list_tournament_registrations(tournament_id, admin_id)
+
+
+@router.patch(
+    "/tournaments/{tournament_id}/registrations/{player_id}",
+    response_model=RegistrationResponse,
+)
+def update_registration_status(
+    tournament_id: int,
+    player_id: int,
+    payload: RegistrationStatusUpdate,
+    db: Session = Depends(get_db),
+    admin_id: int = Depends(get_current_user),
+) -> RegistrationResponse:
+    registration = RegistrationService(db).update_registration_status(
+        tournament_id=tournament_id,
+        player_id=player_id,
+        status_value=payload.status,
+        admin_id=admin_id,
+    )
+    return RegistrationResponse.model_validate(registration)
 
 
 @router.get("/tournaments/{tournament_id}", response_model=TournamentDetailResponse)

@@ -18,3 +18,16 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+# Register all ORM models in SQLAlchemy metadata at import-time.
+# This prevents FK resolution issues in flows (scheduler/scripts)
+# that touch only a subset of repositories/models.
+from app.domain.models.alert import Alert  # noqa: F401,E402
+from app.domain.models.elo_history import EloHistory  # noqa: F401,E402
+from app.domain.models.player import Player  # noqa: F401,E402
+from app.domain.models.scheduled_match import ScheduledMatch  # noqa: F401,E402
+from app.models.audit_log import AuditLogModel  # noqa: F401,E402
+from app.models.match import MatchModel  # noqa: F401,E402
+from app.models.registration import RegistrationModel  # noqa: F401,E402
+from app.models.tournament import TournamentModel  # noqa: F401,E402

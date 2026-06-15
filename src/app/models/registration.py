@@ -1,4 +1,6 @@
-from sqlalchemy import ForeignKey, Integer, Text, UniqueConstraint
+from datetime import date
+
+from sqlalchemy import Date, ForeignKey, Integer, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -14,3 +16,5 @@ class RegistrationModel(Base):
     tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id"), nullable=False)
     player_id: Mapped[int] = mapped_column(ForeignKey("players.id"), nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False, default="Confirmado")
+    registration_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    elo_seed: Mapped[int | None] = mapped_column(Integer, nullable=True)

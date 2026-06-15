@@ -24,6 +24,27 @@ class PlayerRead(BaseModel):
     global_elo: int
 
 
+class PlayerTournamentHistoryItem(BaseModel):
+    id: int
+    name: str
+    elimination_type: str
+    rounds: int
+    status: str
+    is_creator: bool
+    registration_status: str | None
+
+
+class EloHistoryItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    match_id: int
+    player_id: int
+    previous_elo: int
+    current_elo: int
+    change_date: date
+
+
 class UserRegistration(BaseModel):
     username: str = Field(min_length=3, max_length=30)
     email: EmailStr

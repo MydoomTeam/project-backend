@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.domain.models.player import Player
 from app.models.registration import RegistrationModel
 
 
@@ -46,3 +47,18 @@ class RegistrationRepository:
     def cancel(self, registration: RegistrationModel) -> None:
         registration.status = "Cancelada"
         self.db.commit()
+
+    def list_by_tournament(self, tournament_id: int) -> list[tuple[RegistrationModel, str, str]]:
+        stmt = (
+            select(RegistrationModel, Player.username, Player.email)
+            .join(Player, Player.id == RegistrationModel.player_id)
+            .where(RegistrationModel.tournament_id == tournament_id)
+            .order_by(RegistrationModel.id.asc())
+        )
+        return list(self.db.execute(stmt).all())
+
+    def update_status(self, registration: RegistrationModel, new_status: str) -> RegistrationModel:
+        registration.status = new_status
+        self.db.commit()
+        self.db.refresh(registration)
+        return registration

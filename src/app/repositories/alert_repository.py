@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
@@ -10,7 +10,7 @@ class AlertRepository:
         self.db = db
 
     def get_all(self) -> list[Alert]:
-        return self.db.query(Alert).order_by(Alert.datetime.desc()).all()
+        return self.db.query(Alert).order_by(Alert.created_at.desc()).all()
 
     def get_by_id(self, alert_id: int) -> Alert | None:
         return self.db.query(Alert).filter(Alert.id == alert_id).first()
@@ -19,7 +19,6 @@ class AlertRepository:
         existing = self.db.query(Alert).filter(
             Alert.event_type == event_type,
             Alert.message == message,
-            Alert.read_status == "nueva",
         ).first()
         if existing:
             return existing
@@ -27,7 +26,7 @@ class AlertRepository:
         alert = Alert(
             event_type=event_type,
             message=message,
-            datetime=date.today(),
+            created_at=datetime.now(),
             read_status="nueva",
         )
         self.db.add(alert)

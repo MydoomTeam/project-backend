@@ -1,9 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.auth import create_access_token
+from app.core.auth import create_access_token, get_current_user
 from app.core.database import get_db
-from app.domain.schemas.player import PlayerRead, LoginRequest, LoginResponse, UserRegistration
+from app.domain.schemas.player import (
+    EloHistoryItem,
+    LoginRequest,
+    LoginResponse,
+    PlayerRead,
+    PlayerTournamentHistoryItem,
+    UserRegistration,
+)
 from app.services.player_service import PlayerService
 
 router = APIRouter(tags=["players"])
@@ -15,6 +22,20 @@ def get_player(player_id: int, db: Session = Depends(get_db)):
     if player is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jugador no encontrado")
     return player
+
+
+@router.get("/players/{player_id}/tournaments", response_model=list[PlayerTournamentHistoryItem])
+def get_player_tournaments(player_id: int, db: Session = Depends(get_db)):
+    return PlayerService(db).get_player_tournament_history(player_id)
+
+
+@router.get("/players/{player_id}/elo-history", response_model=list[EloHistoryItem])
+def get_player_elo_history(
+    player_id: int,
+    db: Session = Depends(get_db),
+    _current_user: int = Depends(get_current_user),
+):
+    return PlayerService(db).get_elo_history(player_id)
 
 
 @router.post("/users", response_model=PlayerRead, status_code=status.HTTP_201_CREATED)

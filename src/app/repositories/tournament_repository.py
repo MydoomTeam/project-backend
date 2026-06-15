@@ -1,4 +1,4 @@
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.domain.models.player import Player
@@ -24,6 +24,10 @@ class TournamentRepository:
 
     def list_available(self) -> list[TournamentModel]:
         stmt = select(TournamentModel).where(TournamentModel.status == "Pendiente").order_by(TournamentModel.id.asc())
+        return list(self.db.execute(stmt).scalars().all())
+
+    def list_all(self) -> list[TournamentModel]:
+        stmt = select(TournamentModel).order_by(TournamentModel.id.desc())
         return list(self.db.execute(stmt).scalars().all())
 
     def get_detail_with_creator(self, tournament_id: int) -> tuple[TournamentModel, str, int] | None:
@@ -79,3 +83,24 @@ class TournamentRepository:
         self.db.commit()
         self.db.refresh(tournament)
         return tournament
+
+    def list_player_tournament_history(
+        self,
+        player_id: int,
+    ) -> list[tuple[TournamentModel, str | None]]:
+        stmt = (
+            select(TournamentModel, RegistrationModel.status)
+            .outerjoin(
+                RegistrationModel,
+                (RegistrationModel.tournament_id == TournamentModel.id)
+                & (RegistrationModel.player_id == player_id),
+            )
+            .where(
+                or_(
+                    TournamentModel.creator_id == player_id,
+                    RegistrationModel.player_id == player_id,
+                )
+            )
+            .order_by(TournamentModel.id.desc())
+        )
+        return list(self.db.execute(stmt).all())

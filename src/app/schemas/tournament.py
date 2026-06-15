@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.match import MatchResponse
@@ -7,6 +9,14 @@ class TournamentCreate(BaseModel):
     name: str = Field(min_length=1)
     elimination_type: str = Field(min_length=1)
     rounds: int = Field(gt=0)
+    game_name: str | None = None
+    game_category: str | None = None
+    participant_target: int | None = Field(default=None, gt=0)
+    round_duration_minutes: int | None = Field(default=None, gt=0)
+    start_date: date | None = None
+    end_date: date | None = None
+    language: str | None = None
+    region: str | None = None
 
 
 class TournamentResponse(BaseModel):
@@ -15,8 +25,16 @@ class TournamentResponse(BaseModel):
     id: int
     name: str
     elimination_type: str
+    game_name: str | None = None
+    game_category: str | None = None
+    participant_target: int | None = None
     rounds: int
+    round_duration_minutes: int | None = None
     status: str
+    start_date: date | None = None
+    end_date: date | None = None
+    language: str | None = None
+    region: str | None = None
     creator_id: int
 
 
@@ -34,8 +52,16 @@ class TournamentDetailResponse(BaseModel):
     id: int
     name: str
     elimination_type: str
+    game_name: str | None = None
+    game_category: str | None = None
+    participant_target: int | None = None
     rounds: int
+    round_duration_minutes: int | None = None
     status: str
+    start_date: date | None = None
+    end_date: date | None = None
+    language: str | None = None
+    region: str | None = None
     creator_id: int
     creator_name: str
     total_participants: int

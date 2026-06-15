@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -12,6 +14,10 @@ class MatchResponse(BaseModel):
     player1_id: int | None
     player2_id: int | None
     winner_id: int | None
+    next_match_id: int | None = None
+    score_detail: str | None = None
+    scheduled_datetime: date | None = None
+    result: str | None = None
     status: str
 
 

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -9,7 +9,7 @@ class AlertResponse(BaseModel):
     id: int
     event_type: str
     message: str
-    created_at: date
+    created_at: datetime
     status: str
 
 

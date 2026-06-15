@@ -7,9 +7,11 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.domain.models.player import Player
-from app.domain.schemas.player import LoginRequest, PasswordUpdate, UserRegistration
+from app.domain.schemas.player import EloHistoryItem, LoginRequest, PasswordUpdate, UserRegistration
 from app.repositories.audit_log_repository import AuditLogRepository
+from app.repositories.elo_history_repository import EloHistoryRepository
 from app.repositories.player_repository import PlayerRepository
+from app.repositories.tournament_repository import TournamentRepository
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +40,37 @@ class PlayerService:
     def __init__(self, db: Session):
         self.repo = PlayerRepository(db)
         self.audit_repo = AuditLogRepository(db)
+        self.tournament_repo = TournamentRepository(db)
+        self.elo_history_repo = EloHistoryRepository(db)
 
     def get_player(self, player_id: int) -> Player | None:
         return self.repo.get_by_id(player_id)
+
+    def get_elo_history(self, player_id: int) -> list[EloHistoryItem]:
+        player = self.repo.get_by_id(player_id)
+        if player is None:
+            raise HTTPException(status_code=404, detail="Jugador no encontrado")
+        entries = self.elo_history_repo.get_by_player(player_id)
+        return [EloHistoryItem.model_validate(entry) for entry in entries]
+
+    def get_player_tournament_history(self, player_id: int) -> list[dict]:
+        player = self.repo.get_by_id(player_id)
+        if player is None:
+            raise HTTPException(status_code=404, detail="Jugador no encontrado")
+
+        rows = self.tournament_repo.list_player_tournament_history(player_id)
+        return [
+            {
+                "id": tournament.id,
+                "name": tournament.name,
+                "elimination_type": tournament.elimination_type,
+                "rounds": tournament.rounds,
+                "status": tournament.status,
+                "is_creator": tournament.creator_id == player_id,
+                "registration_status": registration_status,
+            }
+            for tournament, registration_status in rows
+        ]
 
     def _validate_password(self, password: str) -> None:
         for is_valid, message in _PASSWORD_RULES:
