@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from app.models.match import MatchModel
 from app.repositories.audit_log_repository import AuditLogRepository
 from app.repositories.elo_history_repository import EloHistoryRepository
-from app.repositories.player_repository import PlayerRepository
 from app.repositories.match_repository import MatchRepository
+from app.repositories.player_repository import PlayerRepository
 from app.repositories.tournament_repository import TournamentRepository
 from app.schemas.match import MatchResponse, ResultResponse
 from app.schemas.tournament import BracketResponse, RankingEntry, RankingResponse

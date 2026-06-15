@@ -7,7 +7,6 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.services.player_service import PlayerService, RegistrationOutcome
 
-
 CLIENT = TestClient(app)
 REGISTER_URL = "/users"
 LOGIN_URL = "/sessions"

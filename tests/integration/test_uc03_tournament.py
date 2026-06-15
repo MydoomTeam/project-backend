@@ -2,7 +2,6 @@ from datetime import date
 from unittest.mock import patch
 
 from app.domain.models.player import Player
-from app.models.tournament import TournamentModel
 from app.repositories.tournament_repository import TournamentRepository
 
 

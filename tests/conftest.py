@@ -1,14 +1,17 @@
 import os
 
+# ruff: noqa: E402
+
 _TEST_DATABASE_URL = "sqlite:///:memory:"
 os.environ["DATABASE_URL"] = _TEST_DATABASE_URL
+
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from unittest.mock import MagicMock, patch
 
 import app.core.database as database
 
@@ -33,15 +36,15 @@ database.SessionLocal = sessionmaker(
     autocommit=False, autoflush=False, bind=test_engine
 )
 
-from app.core.database import Base, get_db
 from app.core.auth import get_current_user
+from app.core.database import Base, get_db
+from app.domain.constants import SYSTEM_ADMIN_ID
 from app.domain.models.alert import Alert  # noqa: F401
-from app.domain.models.scheduled_match import ScheduledMatch  # noqa: F401
 from app.domain.models.elo_history import EloHistory  # noqa: F401
 from app.domain.models.player import Player  # noqa: F401
-from app.domain.constants import SYSTEM_ADMIN_ID
-from app.repositories.player_repository import PlayerRepository
+from app.domain.models.scheduled_match import ScheduledMatch  # noqa: F401
 from app.main import app
+from app.repositories.player_repository import PlayerRepository
 
 TestingSessionLocal = database.SessionLocal
 

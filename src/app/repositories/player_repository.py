@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import select, or_
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.domain.models.player import Player

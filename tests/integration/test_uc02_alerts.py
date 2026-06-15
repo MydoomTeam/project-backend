@@ -1,7 +1,8 @@
+from tests.helpers import seed_overdue_scheduled_match
+
 from app.domain.models.alert import Alert
 from app.models.audit_log import AuditLogModel
 from app.tasks.scheduler import check_overdue_events
-from tests.helpers import seed_overdue_scheduled_match
 
 
 def test_scheduler_creates_alert_for_overdue_match(db_session):

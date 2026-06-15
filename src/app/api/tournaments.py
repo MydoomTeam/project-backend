@@ -4,8 +4,11 @@ from sqlalchemy.orm import Session
 from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.schemas.match import MatchResponse, ResultRequest, ResultResponse
-from app.schemas.registration import RegistrationResponse
-from app.schemas.registration import RegistrationListItem, RegistrationStatusUpdate
+from app.schemas.registration import (
+    RegistrationListItem,
+    RegistrationResponse,
+    RegistrationStatusUpdate,
+)
 from app.schemas.tournament import (
     BracketResponse,
     RankingResponse,

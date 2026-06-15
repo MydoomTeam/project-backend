@@ -1,6 +1,6 @@
+import logging
 from dataclasses import dataclass
 from datetime import date
-import logging
 
 import bcrypt
 from fastapi import HTTPException
@@ -101,7 +101,7 @@ class PlayerService:
                 action="UPDATE_PASSWORD",
                 change_description="Player",
             )
-        except Exception:
+        except Exception as err:
             self.audit_repo.log_action(
                 actor_id=player_id,
                 action="UPDATE_PASSWORD_FAILED",
@@ -110,7 +110,7 @@ class PlayerService:
             raise HTTPException(
                 status_code=500,
                 detail="Error al persistir en la base de datos",
-            )
+            ) from err
 
         return {"message": "password_updated"}
 

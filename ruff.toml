@@ -1,0 +1,28 @@
+# Ruff configuration for ArenaSync backend
+# https://docs.astral.sh/ruff/configuration/
+
+# Versión objetivo del código
+target-version = "py311"
+
+# Carpetas que analiza
+src = ["src", "tests"]
+
+# Longitud máxima de línea
+line-length = 100
+
+[lint]
+# Reglas habilitadas:
+#   E / W  – pycodestyle (estilo PEP 8)
+#   F      – pyflakes (importaciones y variables)
+#   I      – isort (orden de imports)
+#   B      – bugbear (buenas prácticas)
+select = ["E", "W", "F", "I", "B"]
+
+# Ignorados intencionalmente:
+#   E501 – líneas largas (ya controladas con line-length)
+#   B008 – llamadas en argumentos por defecto (patrón válido en FastAPI Depends)
+ignore = ["E501", "B008"]
+
+[lint.per-file-ignores]
+# conftest importa en orden forzado para inicializar la base de datos antes que la app
+"tests/conftest.py" = ["E402"]
