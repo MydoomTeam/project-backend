@@ -43,6 +43,9 @@ from app.domain.models.alert import Alert  # noqa: F401
 from app.domain.models.elo_history import EloHistory  # noqa: F401
 from app.domain.models.player import Player  # noqa: F401
 from app.domain.models.scheduled_match import ScheduledMatch  # noqa: F401
+from app.models.audit_log import AuditLogModel  # noqa: F401
+from app.models.match import MatchModel  # noqa: F401
+from app.models.tournament import TournamentModel  # noqa: F401
 from app.main import app
 from app.repositories.player_repository import PlayerRepository
 

@@ -1,19 +1,28 @@
 import logging
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
+from uuid import uuid4
 
 import bcrypt
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.domain.models.player import Player
-from app.domain.schemas.player import EloHistoryItem, LoginRequest, PasswordUpdate, UserRegistration
+from app.domain.schemas.player import EloHistoryItem, LoginRequest, PasswordUpdate, PlayerLookupItem, UserRegistration
 from app.repositories.audit_log_repository import AuditLogRepository
 from app.repositories.elo_history_repository import EloHistoryRepository
 from app.repositories.player_repository import PlayerRepository
 from app.repositories.tournament_repository import TournamentRepository
 
 logger = logging.getLogger(__name__)
+
+_MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024
+_ALLOWED_AVATAR_TYPES = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+}
 
 _PASSWORD_RULES = [
     (lambda password: len(password) >= 8, "La contraseña debe tener al menos 8 caracteres"),
@@ -45,6 +54,10 @@ class PlayerService:
 
     def get_player(self, player_id: int) -> Player | None:
         return self.repo.get_by_id(player_id)
+
+    def search_players(self, query: str, limit: int = 8) -> list[PlayerLookupItem]:
+        rows = self.repo.search_by_username(query, limit=limit)
+        return [PlayerLookupItem.model_validate(player) for player in rows]
 
     def get_elo_history(self, player_id: int) -> list[EloHistoryItem]:
         player = self.repo.get_by_id(player_id)
@@ -87,11 +100,17 @@ class PlayerService:
                 detail={"error": "validation_error", "details": ["Las contraseñas no coinciden"]},
             )
 
-        self._validate_password(schema.password)
-
         player = self.repo.get_by_id(player_id)
         if player is None:
             raise HTTPException(status_code=404, detail="Jugador no encontrado")
+
+        if not self._verify_password(schema.current_password, player.password_hash):
+            raise HTTPException(
+                status_code=401,
+                detail={"error": "validation_error", "details": ["La contraseña actual es incorrecta"]},
+            )
+
+        self._validate_password(schema.password)
 
         password_hash = self._hash_password(schema.password)
         try:
@@ -113,6 +132,113 @@ class PlayerService:
             ) from err
 
         return {"message": "password_updated"}
+
+    def update_avatar_url(self, player_id: int, avatar_url: str | None) -> Player:
+        player = self.repo.get_by_id(player_id)
+        if player is None:
+            raise HTTPException(status_code=404, detail="Jugador no encontrado")
+
+        normalized = avatar_url.strip() if isinstance(avatar_url, str) else None
+        if normalized == "":
+            normalized = None
+
+        try:
+            updated = self.repo.update_avatar_url(player, normalized)
+            self.audit_repo.log_action(
+                actor_id=player_id,
+                action="UPDATE_AVATAR_URL",
+                change_description="Player",
+            )
+            return updated
+        except Exception as err:
+            self.audit_repo.log_action(
+                actor_id=player_id,
+                action="UPDATE_AVATAR_URL_FAILED",
+                change_description="Player",
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Error al persistir en la base de datos",
+            ) from err
+
+    def update_avatar_file(self, player_id: int, avatar_file: UploadFile) -> Player:
+        player = self.repo.get_by_id(player_id)
+        if player is None:
+            raise HTTPException(status_code=404, detail="Jugador no encontrado")
+
+        if avatar_file.content_type not in _ALLOWED_AVATAR_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "validation_error",
+                    "details": ["Formato de imagen no soportado. Usa JPG, PNG o WEBP."],
+                },
+            )
+
+        content = avatar_file.file.read()
+        if len(content) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "validation_error",
+                    "details": ["El archivo de imagen está vacío."],
+                },
+            )
+
+        if len(content) > _MAX_AVATAR_SIZE_BYTES:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "validation_error",
+                    "details": ["La imagen supera el límite de 2 MB."],
+                },
+            )
+
+        uploads_dir = Path(__file__).resolve().parents[3] / "uploads" / "avatars"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        extension = _ALLOWED_AVATAR_TYPES[avatar_file.content_type]
+        filename = f"{player_id}_{uuid4().hex}{extension}"
+        file_path = uploads_dir / filename
+        file_path.write_bytes(content)
+
+        previous_path = self._resolve_local_avatar_path(player.avatar_url)
+        if previous_path is not None and previous_path.exists() and previous_path != file_path:
+            try:
+                previous_path.unlink()
+            except OSError:
+                logger.warning("No se pudo eliminar avatar anterior: %s", previous_path)
+
+        public_url = f"/api/uploads/avatars/{filename}"
+
+        try:
+            updated = self.repo.update_avatar_url(player, public_url)
+            self.audit_repo.log_action(
+                actor_id=player_id,
+                action="UPLOAD_AVATAR_FILE",
+                change_description="Player",
+            )
+            return updated
+        except Exception as err:
+            self.audit_repo.log_action(
+                actor_id=player_id,
+                action="UPLOAD_AVATAR_FILE_FAILED",
+                change_description="Player",
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Error al persistir en la base de datos",
+            ) from err
+
+    def _resolve_local_avatar_path(self, avatar_url: str | None) -> Path | None:
+        if not avatar_url:
+            return None
+        prefix = "/api/uploads/avatars/"
+        if not avatar_url.startswith(prefix):
+            return None
+        filename = avatar_url.removeprefix(prefix).strip()
+        if not filename:
+            return None
+        return Path(__file__).resolve().parents[3] / "uploads" / "avatars" / filename
 
     def _hash_password(self, password: str) -> str:
         return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")

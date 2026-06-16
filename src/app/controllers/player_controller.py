@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.auth import create_access_token, get_current_user
@@ -7,6 +7,8 @@ from app.domain.schemas.player import (
     EloHistoryItem,
     LoginRequest,
     LoginResponse,
+    PlayerAvatarUpdate,
+    PlayerLookupItem,
     PlayerRead,
     PlayerTournamentHistoryItem,
     UserRegistration,
@@ -14,6 +16,16 @@ from app.domain.schemas.player import (
 from app.services.player_service import PlayerService
 
 router = APIRouter(tags=["players"])
+
+
+@router.get("/players", response_model=list[PlayerLookupItem])
+def search_players(
+    q: str = Query(..., min_length=1, max_length=50),
+    limit: int = Query(8, ge=1, le=20),
+    db: Session = Depends(get_db),
+    _current_user: int = Depends(get_current_user),
+):
+    return PlayerService(db).search_players(q, limit=limit)
 
 
 @router.get("/players/{player_id}", response_model=PlayerRead)
@@ -60,3 +72,23 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         access_token=create_access_token(player.id),
         player=PlayerRead.model_validate(player),
     )
+
+
+@router.put("/players/me/avatar", response_model=PlayerRead)
+def update_my_avatar(
+    payload: PlayerAvatarUpdate,
+    db: Session = Depends(get_db),
+    current_user: int = Depends(get_current_user),
+):
+    updated = PlayerService(db).update_avatar_url(current_user, payload.avatar_url)
+    return PlayerRead.model_validate(updated)
+
+
+@router.post("/players/me/avatar-file", response_model=PlayerRead)
+def upload_my_avatar_file(
+    avatar: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: int = Depends(get_current_user),
+):
+    updated = PlayerService(db).update_avatar_file(current_user, avatar)
+    return PlayerRead.model_validate(updated)

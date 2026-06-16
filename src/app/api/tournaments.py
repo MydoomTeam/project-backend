@@ -154,7 +154,14 @@ def record_result(
     db: Session = Depends(get_db),
     admin_id: int = Depends(get_current_user),
 ) -> ResultResponse:
-    return MatchService(db).record_result(tournament_id, match_id, payload.winner_id, admin_id)
+    return MatchService(db).record_result(
+        tournament_id,
+        match_id,
+        payload.winner_id,
+        admin_id,
+        score_player1=payload.score_player1,
+        score_player2=payload.score_player2,
+    )
 
 
 @router.get("/tournaments/{tournament_id}/ranking", response_model=RankingResponse)

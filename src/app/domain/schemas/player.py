@@ -9,8 +9,13 @@ _PATTERN_IDENTIFIER = r"^[A-Za-z0-9!@#$%^&*()\-_+=\[\]{};:.,<>/?@]+$"
 
 
 class PasswordUpdate(BaseModel):
+    current_password: str
     password: str
     password_confirm: str
+
+
+class PlayerAvatarUpdate(BaseModel):
+    avatar_url: str | None = Field(default=None, max_length=500)
 
 
 class PlayerRead(BaseModel):
@@ -22,6 +27,16 @@ class PlayerRead(BaseModel):
     role: str
     last_access_date: date
     global_elo: int
+    avatar_url: str | None = None
+
+
+class PlayerLookupItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str
+    global_elo: int
+    avatar_url: str | None = None
 
 
 class PlayerTournamentHistoryItem(BaseModel):

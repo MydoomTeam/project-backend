@@ -67,6 +67,18 @@ class PlayerRepository:
         )
         return self.db.execute(stmt).scalars().first()
 
+    def search_by_username(self, query: str, limit: int = 8) -> list[Player]:
+        normalized = query.strip()
+        if not normalized:
+            return []
+        stmt = (
+            select(Player)
+            .where(Player.username.ilike(f"%{normalized}%"))
+            .order_by(Player.username.asc())
+            .limit(limit)
+        )
+        return self.db.execute(stmt).scalars().all()
+
     def update_last_access(self, player: Player) -> Player:
         player.last_access_date = date.today()
         self.db.commit()
@@ -75,6 +87,12 @@ class PlayerRepository:
 
     def update_password(self, player: Player, password_hash: str) -> Player:
         player.password_hash = password_hash
+        self.db.commit()
+        self.db.refresh(player)
+        return player
+
+    def update_avatar_url(self, player: Player, avatar_url: str | None) -> Player:
+        player.avatar_url = avatar_url
         self.db.commit()
         self.db.refresh(player)
         return player

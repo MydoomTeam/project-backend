@@ -15,6 +15,8 @@ class MatchResponse(BaseModel):
     player2_id: int | None
     winner_id: int | None
     next_match_id: int | None = None
+    score_player1: int | None = None
+    score_player2: int | None = None
     score_detail: str | None = None
     scheduled_datetime: date | None = None
     result: str | None = None
@@ -23,6 +25,8 @@ class MatchResponse(BaseModel):
 
 class ResultRequest(BaseModel):
     winner_id: int
+    score_player1: int | None = None
+    score_player2: int | None = None
 
 
 class ResultResponse(BaseModel):

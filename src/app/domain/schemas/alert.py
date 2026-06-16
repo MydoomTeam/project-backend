@@ -15,6 +15,15 @@ class AlertResponse(BaseModel):
 
 class AlertListResponse(BaseModel):
     items: list[AlertResponse]
+    stats: dict[str, int]
+    history: list["AlertActivityResponse"]
+
+
+class AlertActivityResponse(BaseModel):
+    id: int
+    action: str
+    created_at: datetime
+    description: str | None = None
 
 
 class AckResponse(BaseModel):

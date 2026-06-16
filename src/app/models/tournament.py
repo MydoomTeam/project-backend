@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, Integer, Text
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -17,6 +17,7 @@ class TournamentModel(Base):
     participant_target: Mapped[int | None] = mapped_column(Integer, nullable=True)
     rounds: Mapped[int] = mapped_column(Integer, nullable=False)
     round_duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    uses_score: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     status: Mapped[str] = mapped_column(Text, nullable=False, default="Pendiente")
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)

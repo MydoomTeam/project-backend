@@ -31,6 +31,7 @@ create table JUGADOR (
    ROL                  TEXT                 not null,
    FECHA_ULTIMO_ACCESO  DATE                 not null,
    ELO_GLOBAL           INT4                 not null,
+   AVATAR_URL           TEXT                 null,
    constraint PK_JUGADOR primary key (ID)
 );
 

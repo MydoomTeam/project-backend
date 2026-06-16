@@ -30,16 +30,33 @@ class TournamentRepository:
         stmt = select(TournamentModel).order_by(TournamentModel.id.desc())
         return list(self.db.execute(stmt).scalars().all())
 
-    def get_detail_with_creator(self, tournament_id: int) -> tuple[TournamentModel, str, int] | None:
+    def list_available_with_creator(self) -> list[tuple[TournamentModel, str | None, str | None]]:
         stmt = (
-            select(TournamentModel, Player.username)
+            select(TournamentModel, Player.username, Player.avatar_url)
+            .join(Player, Player.id == TournamentModel.creator_id)
+            .where(TournamentModel.status == "Pendiente")
+            .order_by(TournamentModel.id.asc())
+        )
+        return list(self.db.execute(stmt).all())
+
+    def list_all_with_creator(self) -> list[tuple[TournamentModel, str | None, str | None]]:
+        stmt = (
+            select(TournamentModel, Player.username, Player.avatar_url)
+            .join(Player, Player.id == TournamentModel.creator_id)
+            .order_by(TournamentModel.id.desc())
+        )
+        return list(self.db.execute(stmt).all())
+
+    def get_detail_with_creator(self, tournament_id: int) -> tuple[TournamentModel, str, str | None, int] | None:
+        stmt = (
+            select(TournamentModel, Player.username, Player.avatar_url)
             .join(Player, Player.id == TournamentModel.creator_id)
             .where(TournamentModel.id == tournament_id)
         )
         row = self.db.execute(stmt).first()
         if row is None:
             return None
-        tournament, creator_name = row
+        tournament, creator_name, creator_avatar_url = row
         count_stmt = (
             select(func.count())
             .select_from(RegistrationModel)
@@ -49,7 +66,7 @@ class TournamentRepository:
             )
         )
         total = self.db.execute(count_stmt).scalar() or 0
-        return tournament, creator_name, total
+        return tournament, creator_name, creator_avatar_url, total
 
     def get_confirmed_participants(self, tournament_id: int) -> list[tuple[int, int]]:
         stmt = (

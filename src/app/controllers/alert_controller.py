@@ -18,7 +18,7 @@ def get_alerts(
     _player_id: int = Depends(get_current_user),
     service: AlertService = Depends(get_alert_service),
 ):
-    return {"items": service.get_alerts()}
+    return service.get_alerts()
 
 @router.patch("/{alert_id}/ack", response_model=AckResponse)
 def acknowledge_alert(

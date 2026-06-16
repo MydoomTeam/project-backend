@@ -13,6 +13,7 @@ class TournamentCreate(BaseModel):
     game_category: str | None = None
     participant_target: int | None = Field(default=None, gt=0)
     round_duration_minutes: int | None = Field(default=None, gt=0)
+    uses_score: bool = False
     start_date: date | None = None
     end_date: date | None = None
     language: str | None = None
@@ -30,12 +31,15 @@ class TournamentResponse(BaseModel):
     participant_target: int | None = None
     rounds: int
     round_duration_minutes: int | None = None
+    uses_score: bool = False
     status: str
     start_date: date | None = None
     end_date: date | None = None
     language: str | None = None
     region: str | None = None
     creator_id: int
+    creator_name: str | None = None
+    creator_avatar_url: str | None = None
 
 
 class TournamentListResponse(TournamentResponse):
@@ -57,6 +61,7 @@ class TournamentDetailResponse(BaseModel):
     participant_target: int | None = None
     rounds: int
     round_duration_minutes: int | None = None
+    uses_score: bool = False
     status: str
     start_date: date | None = None
     end_date: date | None = None
@@ -64,6 +69,7 @@ class TournamentDetailResponse(BaseModel):
     region: str | None = None
     creator_id: int
     creator_name: str
+    creator_avatar_url: str | None = None
     total_participants: int
 
 

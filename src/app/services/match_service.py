@@ -250,7 +250,13 @@ class MatchService:
                 m.status = _STATUS_IN_PROGRESS
 
     def record_result(
-        self, tournament_id: int, match_id: int, winner_id: int, admin_id: int
+        self,
+        tournament_id: int,
+        match_id: int,
+        winner_id: int,
+        admin_id: int,
+        score_player1: int | None = None,
+        score_player2: int | None = None,
     ) -> ResultResponse:
         tournament = self._get_tournament_in_progress(tournament_id, admin_id)
         match = self._get_playable_match(tournament_id, match_id)
@@ -260,8 +266,22 @@ class MatchService:
         new_winner_elo, new_loser_elo = self._apply_elo(winner_id, loser_id, match_id=match.id)
 
         match.winner_id = winner_id
-        match.result = f"Ganador: jugador {winner_id}"
-        match.score_detail = f"winner_id={winner_id}"
+        uses_score = bool(getattr(tournament, "uses_score", False))
+        if uses_score:
+            if score_player1 is None or score_player2 is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Este torneo requiere score_player1 y score_player2",
+                )
+            match.score_player1 = score_player1
+            match.score_player2 = score_player2
+            match.result = f"Score final: {score_player1}-{score_player2}"
+            match.score_detail = f"{score_player1}-{score_player2}"
+        else:
+            match.score_player1 = None
+            match.score_player2 = None
+            match.result = f"Ganador: jugador {winner_id}"
+            match.score_detail = f"winner_id={winner_id}"
         match.status = _STATUS_FINISHED
 
         tournament_finished = self._advance_by_format(tournament_id, tournament, match, winner_id, loser_id)

@@ -14,3 +14,4 @@ class Player(Base):
     role = Column(Text, nullable=False)
     last_access_date = Column(Date, nullable=False)
     global_elo = Column(Integer, nullable=False)
+    avatar_url = Column(Text, nullable=True)

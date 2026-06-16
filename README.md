@@ -506,12 +506,39 @@ POST /admins/password
 
 ```json
 {
+  "current_password": "ClaveActual123!",
   "password": "NuevaClave123!",
   "password_confirm": "NuevaClave123!"
 }
 ```
 
 El jugador objetivo se identifica por el token (`Authorization: Bearer`).
+
+#### Actualizar avatar por URL
+
+```
+PUT /players/me/avatar
+```
+
+```json
+{
+  "avatar_url": "https://cdn.ejemplo.com/perfiles/user1.jpg"
+}
+```
+
+Para limpiar el avatar, enviar `avatar_url: null`.
+
+#### Subir avatar por archivo (multipart)
+
+```
+POST /players/me/avatar-file
+Content-Type: multipart/form-data
+```
+
+Campo del formulario:
+- `avatar`: archivo de imagen (`.jpg`, `.png`, `.webp`, máximo 2 MB)
+
+La API guarda el archivo en `uploads/avatars` y retorna el perfil con la `avatar_url` final.
 
 #### Ver alertas de matches vencidos
 

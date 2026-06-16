@@ -6,9 +6,9 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.database import SessionLocal
 from app.domain.constants import SYSTEM_ADMIN_ID
-from app.domain.models.scheduled_match import ScheduledMatch
 from app.repositories.alert_repository import AlertRepository
 from app.repositories.audit_log_repository import AuditLogRepository
+from app.models.match import MatchModel
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ _CHECK_INTERVAL_SECONDS = 30
 
 
 def _record_overdue_alert(db, alert_repo, audit_repo, match) -> None:
-    message = f"Enfrentamiento {match.id} vencido."
+    message = f"Partido #{match.id} vencido. Estado actual: {match.status}."
     try:
         alert = alert_repo.create(event_type="match_overdue", message=message)
         audit_repo.log_action(
@@ -40,9 +40,10 @@ def check_overdue_events():
         today = date.today()
         audit_repo = AuditLogRepository(db)
 
-        overdue_matches = db.query(ScheduledMatch).filter(
-            ScheduledMatch.match_status == "Pendiente",
-            ScheduledMatch.scheduled_datetime <= today,
+        overdue_matches = db.query(MatchModel).filter(
+            MatchModel.scheduled_datetime.isnot(None),
+            MatchModel.status.in_(["Programado", "En curso"]),
+            MatchModel.scheduled_datetime <= today,
         ).all()
 
         if not overdue_matches:

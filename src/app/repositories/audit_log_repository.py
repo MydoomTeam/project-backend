@@ -46,3 +46,11 @@ class AuditLogRepository:
             change_description=change_description,
         )
         self.db.commit()
+
+    def list_recent(self, limit: int = 12) -> list[AuditLogModel]:
+        return (
+            self.db.query(AuditLogModel)
+            .order_by(AuditLogModel.created_at.desc(), AuditLogModel.id.desc())
+            .limit(limit)
+            .all()
+        )

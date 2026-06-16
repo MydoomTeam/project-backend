@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.tournaments import router as tournaments_router
 from app.controllers.admin_controller import router as admin_router
@@ -32,6 +34,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ArenaSync Backend", lifespan=lifespan)
+
+_UPLOADS_DIR = Path(__file__).resolve().parents[2] / "uploads"
+_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+(_UPLOADS_DIR / "avatars").mkdir(parents=True, exist_ok=True)
+
+app.mount("/uploads", StaticFiles(directory=_UPLOADS_DIR), name="uploads")
+app.mount("/api/uploads", StaticFiles(directory=_UPLOADS_DIR), name="api-uploads")
 
 # El esquema lo gestiona Alembic (única fuente de verdad). Ejecutar `alembic upgrade head`.
 

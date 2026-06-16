@@ -21,11 +21,45 @@ class TournamentService:
         self.repo = TournamentRepository(db)
         self.audit_repo = AuditLogRepository(db)
 
-    def get_available_tournaments(self) -> list[TournamentModel]:
-        return self.repo.list_available()
+    def _to_tournament_payload(
+        self,
+        tournament: TournamentModel,
+        creator_name: str | None = None,
+        creator_avatar_url: str | None = None,
+    ) -> dict:
+        return {
+            "id": tournament.id,
+            "name": tournament.name,
+            "elimination_type": tournament.elimination_type,
+            "game_name": tournament.game_name,
+            "game_category": tournament.game_category,
+            "participant_target": tournament.participant_target,
+            "rounds": tournament.rounds,
+            "round_duration_minutes": tournament.round_duration_minutes,
+            "uses_score": tournament.uses_score,
+            "status": tournament.status,
+            "start_date": tournament.start_date,
+            "end_date": tournament.end_date,
+            "language": tournament.language,
+            "region": tournament.region,
+            "creator_id": tournament.creator_id,
+            "creator_name": creator_name,
+            "creator_avatar_url": creator_avatar_url,
+        }
 
-    def get_all_tournaments(self) -> list[TournamentModel]:
-        return self.repo.list_all()
+    def get_available_tournaments(self) -> list[dict]:
+        rows = self.repo.list_available_with_creator()
+        return [
+            self._to_tournament_payload(tournament, creator_name, creator_avatar_url)
+            for tournament, creator_name, creator_avatar_url in rows
+        ]
+
+    def get_all_tournaments(self) -> list[dict]:
+        rows = self.repo.list_all_with_creator()
+        return [
+            self._to_tournament_payload(tournament, creator_name, creator_avatar_url)
+            for tournament, creator_name, creator_avatar_url in rows
+        ]
 
     def get_tournament_detail(self, tournament_id: int) -> TournamentDetailResponse:
         result = self.repo.get_detail_with_creator(tournament_id)
@@ -34,7 +68,7 @@ class TournamentService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Torneo no encontrado",
             )
-        tournament, creator_name, total_participants = result
+        tournament, creator_name, creator_avatar_url, total_participants = result
         return TournamentDetailResponse(
             id=tournament.id,
             name=tournament.name,
@@ -44,6 +78,7 @@ class TournamentService:
             participant_target=tournament.participant_target,
             rounds=tournament.rounds,
             round_duration_minutes=tournament.round_duration_minutes,
+            uses_score=tournament.uses_score,
             status=tournament.status,
             start_date=tournament.start_date,
             end_date=tournament.end_date,
@@ -51,6 +86,7 @@ class TournamentService:
             region=tournament.region,
             creator_id=tournament.creator_id,
             creator_name=creator_name,
+            creator_avatar_url=creator_avatar_url,
             total_participants=total_participants,
         )
 
@@ -103,6 +139,7 @@ class TournamentService:
             participant_target=data.participant_target,
             rounds=data.rounds,
             round_duration_minutes=data.round_duration_minutes,
+            uses_score=data.uses_score,
             status="Pendiente",
             start_date=data.start_date,
             end_date=data.end_date,
