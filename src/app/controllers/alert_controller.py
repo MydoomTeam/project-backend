@@ -15,10 +15,10 @@ def get_alert_service(db: Session = Depends(get_db)) -> AlertService:
 
 @router.get("", response_model=AlertListResponse)
 def get_alerts(
-    _player_id: int = Depends(get_current_user),
+    player_id: int = Depends(get_current_user),
     service: AlertService = Depends(get_alert_service),
 ):
-    return service.get_alerts()
+    return service.get_alerts(player_id)
 
 @router.patch("/{alert_id}/ack", response_model=AckResponse)
 def acknowledge_alert(

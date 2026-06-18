@@ -22,8 +22,11 @@ class AlertListResponse(BaseModel):
 class AlertActivityResponse(BaseModel):
     id: int
     action: str
+    action_label: str | None = None
     created_at: datetime
     description: str | None = None
+    tournament_id: int | None = None
+    tournament_name: str | None = None
 
 
 class AckResponse(BaseModel):

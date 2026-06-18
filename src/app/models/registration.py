@@ -15,6 +15,6 @@ class RegistrationModel(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id"), nullable=False)
     player_id: Mapped[int] = mapped_column(ForeignKey("players.id"), nullable=False)
-    status: Mapped[str] = mapped_column(Text, nullable=False, default="Confirmado")
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="Por confirmar")
     registration_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     elo_seed: Mapped[int | None] = mapped_column(Integer, nullable=True)

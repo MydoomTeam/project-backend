@@ -107,7 +107,12 @@ class TournamentService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Solo se puede cancelar un torneo en estado Pendiente o Listo para iniciar",
             )
-        self.audit_repo.record(action="CANCELAR_TORNEO", user_id=admin_id, created_at=datetime.now())
+        self.audit_repo.record(
+            action="CANCELAR_TORNEO",
+            user_id=admin_id,
+            created_at=datetime.now(),
+            change_description=f"tournament_id={tournament_id}",
+        )
         self.repo.delete(tournament)
 
     def create_tournament(self, data: TournamentCreate, creator_id: int) -> TournamentModel:
@@ -147,5 +152,10 @@ class TournamentService:
             region=data.region,
             creator_id=creator_id,
         )
-        self.audit_repo.record(action="CREAR_TORNEO", user_id=creator_id, created_at=datetime.now())
-        return self.repo.save(tournament)
+        created = self.repo.save(tournament)
+        self.audit_repo.log_action(
+            actor_id=creator_id,
+            action="CREAR_TORNEO",
+            change_description=f"tournament_id={created.id}",
+        )
+        return created

@@ -11,6 +11,7 @@ class TestAlertServiceValidation(unittest.TestCase):
     def setUp(self):
         self.mock_alert_repo = Mock()
         self.mock_audit_repo = Mock()
+        self.mock_audit_repo.list_recent.return_value = []
         self.service = AlertService(self.mock_alert_repo, self.mock_audit_repo)
 
     def test_get_alerts_empty_list(self):
@@ -18,7 +19,7 @@ class TestAlertServiceValidation(unittest.TestCase):
 
         result = self.service.get_alerts()
 
-        self.assertEqual(len(result), 0)
+        self.assertEqual(len(result["items"]), 0)
         self.mock_alert_repo.get_all.assert_called_once()
 
     def test_get_alerts_with_data(self):
@@ -33,9 +34,9 @@ class TestAlertServiceValidation(unittest.TestCase):
 
         result = self.service.get_alerts()
 
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0].id, 1)
-        self.assertEqual(result[0].event_type, "match_overdue")
+        self.assertEqual(len(result["items"]), 1)
+        self.assertEqual(result["items"][0].id, 1)
+        self.assertEqual(result["items"][0].event_type, "match_overdue")
 
     def test_acknowledge_alert_success(self):
         admin_id = 1
@@ -101,10 +102,10 @@ class TestAlertServiceValidation(unittest.TestCase):
 
         result = self.service.get_alerts()
 
-        self.assertEqual(len(result), 1)
-        self.assertTrue(hasattr(result[0], "id"))
-        self.assertTrue(hasattr(result[0], "event_type"))
-        self.assertTrue(hasattr(result[0], "message"))
+        self.assertEqual(len(result["items"]), 1)
+        self.assertTrue(hasattr(result["items"][0], "id"))
+        self.assertTrue(hasattr(result["items"][0], "event_type"))
+        self.assertTrue(hasattr(result["items"][0], "message"))
 
     def test_acknowledge_alert_with_multiple_alerts(self):
         admin_id = 1
