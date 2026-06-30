@@ -1,5 +1,9 @@
+from typing import Any
+
 from sqlalchemy import delete, func, or_, select
+from sqlalchemy.engine import Result
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import Select
 
 from app.domain.models.player import Player
 from app.models.match import MatchModel
@@ -22,30 +26,45 @@ class TournamentRepository:
         )
         return self.db.execute(stmt).scalars().first()
 
+    def _build_tournament_query(
+        self,
+        only_available: bool = False,
+        include_creator: bool = False,
+    ) -> Select[Any]:
+        stmt: Select[Any] = select(TournamentModel)
+
+        if include_creator:
+            stmt = (
+                select(TournamentModel, Player.username, Player.avatar_url)
+                .join(Player, Player.id == TournamentModel.creator_id)
+            )
+
+        if only_available:
+            stmt = stmt.where(TournamentModel.status == "Pendiente")
+
+        return stmt
+
+    def _execute_tournament_query(self, stmt: Select[Any]) -> list[tuple[Any, ...]]:
+        result: Result[tuple[Any, ...]] = self.db.execute(stmt)
+        return [tuple(row) for row in result.all()]
+
     def list_available(self) -> list[TournamentModel]:
-        stmt = select(TournamentModel).where(TournamentModel.status == "Pendiente").order_by(TournamentModel.id.asc())
+        stmt = self._build_tournament_query(only_available=True)
         return list(self.db.execute(stmt).scalars().all())
 
     def list_all(self) -> list[TournamentModel]:
-        stmt = select(TournamentModel).order_by(TournamentModel.id.desc())
+        stmt = self._build_tournament_query()
         return list(self.db.execute(stmt).scalars().all())
 
     def list_available_with_creator(self) -> list[tuple[TournamentModel, str | None, str | None]]:
-        stmt = (
-            select(TournamentModel, Player.username, Player.avatar_url)
-            .join(Player, Player.id == TournamentModel.creator_id)
-            .where(TournamentModel.status == "Pendiente")
-            .order_by(TournamentModel.id.asc())
-        )
-        return list(self.db.execute(stmt).all())
+        stmt = self._build_tournament_query(only_available=True, include_creator=True)
+        result: Result[tuple[TournamentModel, str | None, str | None]] = self.db.execute(stmt)
+        return [(row[0], row[1], row[2]) for row in result.all()]
 
     def list_all_with_creator(self) -> list[tuple[TournamentModel, str | None, str | None]]:
-        stmt = (
-            select(TournamentModel, Player.username, Player.avatar_url)
-            .join(Player, Player.id == TournamentModel.creator_id)
-            .order_by(TournamentModel.id.desc())
-        )
-        return list(self.db.execute(stmt).all())
+        stmt = self._build_tournament_query(include_creator=True)
+        result: Result[tuple[TournamentModel, str | None, str | None]] = self.db.execute(stmt)
+        return [(row[0], row[1], row[2]) for row in result.all()]
 
     def get_detail_with_creator(self, tournament_id: int) -> tuple[TournamentModel, str, str | None, int] | None:
         stmt = (
@@ -58,7 +77,7 @@ class TournamentRepository:
             return None
         tournament, creator_name, creator_avatar_url = row
         count_stmt = (
-            select(func.count())
+            select(func.count(RegistrationModel.id))
             .select_from(RegistrationModel)
             .where(
                 RegistrationModel.tournament_id == tournament_id,
@@ -79,7 +98,7 @@ class TournamentRepository:
             .order_by(Player.global_elo.desc())
         )
         rows = self.db.execute(stmt).all()
-        return [(int(row.player_id), int(row.global_elo)) for row in rows]
+        return [(int(row[0]), int(row[1])) for row in rows]
 
     def update_status(self, tournament: TournamentModel, new_status: str) -> TournamentModel:
         tournament.status = new_status
@@ -120,4 +139,5 @@ class TournamentRepository:
             )
             .order_by(TournamentModel.id.desc())
         )
-        return list(self.db.execute(stmt).all())
+        rows = self.db.execute(stmt).all()
+        return [(row[0], row[1]) for row in rows]

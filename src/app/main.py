@@ -27,7 +27,7 @@ def _initialize_system_actor_for_audit_logs() -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     _initialize_system_actor_for_audit_logs()
     start_scheduler()
     yield

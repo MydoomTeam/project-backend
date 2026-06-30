@@ -5,12 +5,13 @@ import os
 _TEST_DATABASE_URL = "sqlite:///:memory:"
 os.environ["DATABASE_URL"] = _TEST_DATABASE_URL
 
+from typing import Any, Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.core.database as database
@@ -23,10 +24,10 @@ test_engine = create_engine(
 
 
 @event.listens_for(test_engine, "connect")
-def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+def _enable_sqlite_foreign_keys(dbapi_connection: Any, _connection_record: Any) -> None:
     # SQLite no enforza FKs por defecto; las activamos para detectar
     # violaciones que de otro modo quedarían ocultas (ADR-006).
-    cursor = dbapi_connection.cursor()
+    cursor: Any = dbapi_connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
 
@@ -39,13 +40,13 @@ database.SessionLocal = sessionmaker(
 from app.core.auth import get_current_user
 from app.core.database import Base, get_db
 from app.domain.constants import SYSTEM_ADMIN_ID
-from app.domain.models.alert import Alert  # noqa: F401
-from app.domain.models.elo_history import EloHistory  # noqa: F401
-from app.domain.models.player import Player  # noqa: F401
-from app.domain.models.scheduled_match import ScheduledMatch  # noqa: F401
-from app.models.audit_log import AuditLogModel  # noqa: F401
-from app.models.match import MatchModel  # noqa: F401
-from app.models.tournament import TournamentModel  # noqa: F401
+from app.domain.models.alert import Alert  # noqa: F401  # type: ignore[reportUnusedImport]
+from app.domain.models.elo_history import EloHistory  # noqa: F401  # type: ignore[reportUnusedImport]
+from app.domain.models.player import Player  # noqa: F401  # type: ignore[reportUnusedImport]
+from app.domain.models.scheduled_match import ScheduledMatch  # noqa: F401  # type: ignore[reportUnusedImport]
+from app.models.audit_log import AuditLogModel  # noqa: F401  # type: ignore[reportUnusedImport]
+from app.models.match import MatchModel  # noqa: F401  # type: ignore[reportUnusedImport]
+from app.models.tournament import TournamentModel  # noqa: F401  # type: ignore[reportUnusedImport]
 from app.main import app
 from app.repositories.player_repository import PlayerRepository
 
@@ -53,7 +54,7 @@ TestingSessionLocal = database.SessionLocal
 
 
 @pytest.fixture(scope="function")
-def db_session():
+def db_session() -> Session:
     Base.metadata.create_all(bind=test_engine)
     session = TestingSessionLocal()
     # Actor de sistema (Player) para satisfacer audit_logs.user_id -> players.id,
@@ -66,8 +67,8 @@ def db_session():
 
 
 @pytest.fixture(scope="function")
-def client(db_session):
-    def override_get_db():
+def client(db_session: Session):
+    def override_get_db() -> Generator[Session, None, None]:
         try:
             yield db_session
         finally:

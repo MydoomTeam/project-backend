@@ -169,64 +169,64 @@ create unique index ALERTA_PK on ALERTA (
 alter table ALERTA
    add constraint FK_ALERTA_ADMINISTRADOR_ID foreign key (ADMINISTRADOR_ID)
       references ADMINISTRADOR (ID)
-      on delete restrict on update restrict;
+      ;
 
 alter table ALERTA
    add constraint FK_ALERTA_JUGADOR_ID foreign key (JUGADOR_ID)
       references JUGADOR (ID)
-      on delete restrict on update restrict;
+      ;
 
 alter table ENFRENTAMIENTO
    add constraint FK_ENFRENTAMIENTO_RONDA_ID foreign key (RONDA_ID)
       references RONDA (ID)
-      on delete restrict on update restrict;
+      ;
 
 alter table ENFRENTAMIENTO
    add constraint FK_ENFRENTAMIENTO_INSCRIPCION_A_ID foreign key (INSCRIPCION_A_ID)
       references INSCRIPCION (ID)
-      on delete restrict on update restrict;
+      ;
 
 alter table ENFRENTAMIENTO
    add constraint FK_ENFRENTAMIENTO_INSCRIPCION_B_ID foreign key (INSCRIPCION_B_ID)
       references INSCRIPCION (ID)
-      on delete restrict on update restrict;
+      ;
 
 alter table ENFRENTAMIENTO
    add constraint FK_ENFRENTAMIENTO_MATCH_SIGUIENTE_ID foreign key (MATCH_SIGUIENTE_ID)
       references ENFRENTAMIENTO (ID)
-      on delete restrict on update restrict;
+      ;
 
 alter table HISTORIALELO
    add constraint FK_HISTORIALELO_ENFRENTAMIENTO_ID foreign key (ENFRENTAMIENTO_ID)
       references ENFRENTAMIENTO (ID)
-      on delete restrict on update restrict;
+      ;
 
 alter table HISTORIALELO
    add constraint FK_HISTORIALELO_JUGADOR_ID foreign key (JUGADOR_ID)
       references JUGADOR (ID)
-      on delete restrict on update restrict;
+      ;
 
 alter table INSCRIPCION
    add constraint FK_INSCRIPCION_TORNEO_ID foreign key (TORNEO_ID)
       references TORNEO (ID)
-      on delete restrict on update restrict;
+      ;
 
 alter table INSCRIPCION
    add constraint FK_INSCRIPCION_JUGADOR_ID foreign key (JUGADOR_ID)
       references JUGADOR (ID)
-      on delete restrict on update restrict;
+      ;
 
 alter table LOGAUDITORIA
    add constraint FK_LOGAUDITORIA_ADMINISTRADOR_ID foreign key (ADMINISTRADOR_ID)
       references ADMINISTRADOR (ID)
-      on delete restrict on update restrict;
+      ;
 
 alter table RONDA
    add constraint FK_RONDA_TORNEO_ID foreign key (TORNEO_ID)
       references TORNEO (ID)
-      on delete restrict on update restrict;
+      ;
 
 alter table TORNEO
    add constraint FK_TORNEO_ADMINISTRADOR_ID foreign key (ADMINISTRADOR_ID)
       references ADMINISTRADOR (ID)
-      on delete restrict on update restrict;
+      ;
