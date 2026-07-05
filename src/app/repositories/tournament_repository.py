@@ -66,16 +66,15 @@ class TournamentRepository:
         result: Result[tuple[TournamentModel, str | None, str | None]] = self.db.execute(stmt)
         return [(row[0], row[1], row[2]) for row in result.all()]
 
-    def get_detail_with_creator(self, tournament_id: int) -> tuple[TournamentModel, str, str | None, int] | None:
-        stmt = (
+    @staticmethod
+    def _detail_with_creator_stmt(tournament_id: int) -> Select[Any]:
+        return (
             select(TournamentModel, Player.username, Player.avatar_url)
             .join(Player, Player.id == TournamentModel.creator_id)
             .where(TournamentModel.id == tournament_id)
         )
-        row = self.db.execute(stmt).first()
-        if row is None:
-            return None
-        tournament, creator_name, creator_avatar_url = row
+
+    def _confirmed_participants_total(self, tournament_id: int) -> int:
         count_stmt = (
             select(func.count(RegistrationModel.id))
             .select_from(RegistrationModel)
@@ -84,8 +83,39 @@ class TournamentRepository:
                 RegistrationModel.status == "Confirmado",
             )
         )
-        total = self.db.execute(count_stmt).scalar() or 0
+        return self.db.execute(count_stmt).scalar() or 0
+
+    @staticmethod
+    def _detail_tuple(
+        row: tuple[TournamentModel, str, str | None],
+        total: int,
+    ) -> tuple[TournamentModel, str, str | None, int]:
+        tournament, creator_name, creator_avatar_url = row
         return tournament, creator_name, creator_avatar_url, total
+
+    def get_detail_with_creator(self, tournament_id: int) -> tuple[TournamentModel, str, str | None, int] | None:
+        row = self.db.execute(self._detail_with_creator_stmt(tournament_id)).first()
+        if row is None:
+            return None
+        return self._detail_tuple(row, self._confirmed_participants_total(tournament_id))
+
+    @staticmethod
+    def _player_tournament_history_stmt(player_id: int) -> Select[Any]:
+        return (
+            select(TournamentModel, RegistrationModel.status)
+            .outerjoin(
+                RegistrationModel,
+                (RegistrationModel.tournament_id == TournamentModel.id)
+                & (RegistrationModel.player_id == player_id),
+            )
+            .where(
+                or_(
+                    TournamentModel.creator_id == player_id,
+                    RegistrationModel.player_id == player_id,
+                )
+            )
+            .order_by(TournamentModel.id.desc())
+        )
 
     def get_confirmed_participants(self, tournament_id: int) -> list[tuple[int, int]]:
         stmt = (
@@ -124,20 +154,5 @@ class TournamentRepository:
         self,
         player_id: int,
     ) -> list[tuple[TournamentModel, str | None]]:
-        stmt = (
-            select(TournamentModel, RegistrationModel.status)
-            .outerjoin(
-                RegistrationModel,
-                (RegistrationModel.tournament_id == TournamentModel.id)
-                & (RegistrationModel.player_id == player_id),
-            )
-            .where(
-                or_(
-                    TournamentModel.creator_id == player_id,
-                    RegistrationModel.player_id == player_id,
-                )
-            )
-            .order_by(TournamentModel.id.desc())
-        )
-        rows = self.db.execute(stmt).all()
+        rows = self.db.execute(self._player_tournament_history_stmt(player_id)).all()
         return [(row[0], row[1]) for row in rows]

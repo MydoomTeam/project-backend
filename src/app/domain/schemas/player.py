@@ -9,7 +9,7 @@ _PATTERN_IDENTIFIER = r"^[A-Za-z0-9!@#$%^&*()\-_+=\[\]{};:.,<>/?@]+$"
 
 
 class PasswordUpdate(BaseModel):
-    current_password: str
+    current_password: str | None = None
     password: str
     password_confirm: str
 

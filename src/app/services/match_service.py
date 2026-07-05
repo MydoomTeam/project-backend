@@ -95,36 +95,66 @@ class MatchService:
             matches=[MatchResponse.model_validate(m) for m in matches],
         )
 
-    def generate_bracket(self, tournament_id: int, admin_id: int) -> BracketResponse:
+    def _get_existing_tournament(self, tournament_id: int):
         tournament = self.tournament_repo.get_by_id(tournament_id)
         if tournament is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Torneo no encontrado")
+        return tournament
+
+    @staticmethod
+    def _ensure_creator_action(tournament, admin_id: int, detail: str) -> None:
         if tournament.creator_id != admin_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Solo el administrador del torneo puede generar el cuadro de enfrentamiento",
-            )
-        if tournament.status != _STATUS_PENDING:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El periodo de inscripciones no está cerrado o el torneo ya fue procesado",
+                detail=detail,
             )
 
+    @staticmethod
+    def _ensure_tournament_status(current_status: str, expected_status: str, detail: str) -> None:
+        if current_status != expected_status:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=detail,
+            )
+
+    @staticmethod
+    def _ensure_min_participants(participants_count: int, minimum: int, elimination_type: str) -> None:
+        if participants_count < minimum:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Se requieren al menos {minimum} participantes confirmados para {elimination_type}",
+            )
+
+    @staticmethod
+    def _to_bracket_response(tournament_id: int, tournament_status: str, matches: list[MatchModel]) -> BracketResponse:
+        return BracketResponse(
+            tournament_id=tournament_id,
+            tournament_status=tournament_status,
+            matches=[MatchResponse.model_validate(m) for m in matches],
+        )
+
+    def _prepare_generated_matches(
+        self,
+        tournament,
+        tournament_id: int,
+    ) -> list[MatchModel]:
         participants = self.tournament_repo.get_confirmed_participants(tournament_id)
         min_req = _MIN_PARTICIPANTS.get(tournament.elimination_type, 2)
-        if len(participants) < min_req:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Se requieren al menos {min_req} participantes confirmados para {tournament.elimination_type}",
-            )
+        self._ensure_min_participants(len(participants), min_req, tournament.elimination_type)
 
         match_models = self._build_match_models(tournament, tournament_id, participants)
-
         match_models = self.match_repo.insert_batch(match_models)
         self._assign_next_match_ids(match_models, tournament.elimination_type)
         self.match_repo.flush()
-        match_responses = [MatchResponse.model_validate(m) for m in match_models]
+        return match_models
 
+    def _finalize_bracket_generation(
+        self,
+        tournament,
+        tournament_id: int,
+        admin_id: int,
+        match_models: list[MatchModel],
+    ) -> BracketResponse:
         self.audit_repo.record(
             action="GENERAR_BRACKET",
             user_id=admin_id,
@@ -132,24 +162,187 @@ class MatchService:
             change_description=f"tournament_id={tournament_id}",
         )
         tournament = self.tournament_repo.update_status(tournament, _STATUS_READY_TO_START)
-        return BracketResponse(tournament_id=tournament_id, tournament_status=tournament.status, matches=match_responses)
+        return self._to_bracket_response(tournament_id, tournament.status, match_models)
+
+    def _activate_non_bracket_matches(self, tournament_id: int) -> None:
+        for match in self.match_repo.get_by_tournament(tournament_id):
+            match.status = _STATUS_IN_PROGRESS
+
+    def _persist_tournament_start(self, tournament, tournament_id: int, admin_id: int) -> None:
+        tournament.status = _STATUS_IN_PROGRESS
+        self.audit_repo.record(
+            action="INICIAR_TORNEO",
+            user_id=admin_id,
+            created_at=datetime.now(),
+            change_description=f"tournament_id={tournament_id}",
+        )
+        self.match_repo.flush()
+        self.match_repo.commit()
+        self.match_repo.refresh(tournament)
+
+    @staticmethod
+    def _resolve_loser_id(match: MatchModel, winner_id: int) -> int:
+        return match.player2_id if winner_id == match.player1_id else match.player1_id
+
+    def _record_match_result_audit(
+        self,
+        tournament_id: int,
+        match_id: int,
+        winner_id: int,
+        admin_id: int,
+        tournament_finished: bool,
+        tournament,
+    ) -> None:
+        self.audit_repo.record(
+            action="REGISTRAR_RESULTADO",
+            user_id=admin_id,
+            created_at=datetime.now(),
+            change_description=f"match_id={match_id},winner_id={winner_id}",
+        )
+        if tournament_finished:
+            self._record_tournament_finished_audit(tournament_id, admin_id, tournament)
+
+    def _record_tournament_finished_audit(self, tournament_id: int, admin_id: int, tournament) -> None:
+        tournament.status = _STATUS_FINISHED
+        self.audit_repo.record(
+            action="FINALIZAR_TORNEO",
+            user_id=admin_id,
+            created_at=datetime.now(),
+            change_description=f"tournament_id={tournament_id}",
+        )
+
+    def _persist_match_result(self, match: MatchModel) -> None:
+        self.match_repo.flush()
+        self.match_repo.commit()
+        self.match_repo.refresh(match)
+
+    @staticmethod
+    def _build_result_response(
+        match: MatchModel,
+        winner_new_elo: int,
+        loser_new_elo: int,
+        tournament_finished: bool,
+    ) -> ResultResponse:
+        return ResultResponse(
+            match=MatchResponse.model_validate(match),
+            winner_new_elo=winner_new_elo,
+            loser_new_elo=loser_new_elo,
+            tournament_finished=tournament_finished,
+        )
+
+    @staticmethod
+    def _build_result_response_from_data(result_data: dict) -> ResultResponse:
+        return MatchService._build_result_response(
+            match=result_data["match"],
+            winner_new_elo=result_data["winner_new_elo"],
+            loser_new_elo=result_data["loser_new_elo"],
+            tournament_finished=result_data["tournament_finished"],
+        )
+
+    @staticmethod
+    def _winner_bracket_matches(matches: list[MatchModel]) -> list[MatchModel]:
+        return [match for match in matches if match.bracket_type == _BRACKET_WINNERS]
+
+    @staticmethod
+    def _loser_bracket_matches(matches: list[MatchModel]) -> list[MatchModel]:
+        return [match for match in matches if match.bracket_type == _BRACKET_LOSERS]
+
+    @staticmethod
+    def _match_index_by_round_position(matches: list[MatchModel]) -> dict[tuple[int, int], MatchModel]:
+        return {(match.round, match.position): match for match in matches}
+
+    @staticmethod
+    def _get_grand_final_match(matches: list[MatchModel]) -> MatchModel | None:
+        return next((match for match in matches if match.bracket_type == _BRACKET_GRAND_FINAL), None)
+
+    def _prepare_record_result_context(
+        self,
+        tournament_id: int,
+        match_id: int,
+        winner_id: int,
+        admin_id: int,
+    ) -> tuple:
+        tournament = self._get_tournament_in_progress(tournament_id, admin_id)
+        match = self._get_playable_match(tournament_id, match_id)
+        self._validate_winner(match, winner_id)
+        return tournament, match
+
+    def _apply_result_and_compute_elo(
+        self,
+        tournament,
+        match: MatchModel,
+        tournament_id: int,
+        winner_id: int,
+        score_player1: int | None,
+        score_player2: int | None,
+    ) -> tuple[int, int, bool]:
+        loser_id, winner_new_elo, loser_new_elo = self._resolve_and_apply_elo(match, winner_id)
+        self._apply_match_result(
+            match=match,
+            tournament=tournament,
+            winner_id=winner_id,
+            score_player1=score_player1,
+            score_player2=score_player2,
+        )
+        tournament_finished = self._advance_by_format(tournament_id, tournament, match, winner_id, loser_id)
+        return winner_new_elo, loser_new_elo, tournament_finished
+
+    def _resolve_and_apply_elo(self, match: MatchModel, winner_id: int) -> tuple[int, int, int]:
+        loser_id = self._resolve_loser_id(match, winner_id)
+        winner_new_elo, loser_new_elo = self._apply_elo(winner_id, loser_id, match_id=match.id)
+        return loser_id, winner_new_elo, loser_new_elo
+
+    def generate_bracket(self, tournament_id: int, admin_id: int) -> BracketResponse:
+        tournament = self._get_existing_tournament(tournament_id)
+        self._ensure_creator_action(
+            tournament,
+            admin_id,
+            "Solo el administrador del torneo puede generar el cuadro de enfrentamiento",
+        )
+        self._ensure_tournament_status(
+            tournament.status,
+            _STATUS_PENDING,
+            "El periodo de inscripciones no está cerrado o el torneo ya fue procesado",
+        )
+
+        match_models = self._prepare_generated_matches(tournament, tournament_id)
+        return self._finalize_bracket_generation(tournament, tournament_id, admin_id, match_models)
 
     @staticmethod
     def _assign_next_match_ids(matches: list[MatchModel], elimination_type: str) -> None:
         if elimination_type not in {_FORMAT_SINGLE, _FORMAT_DOUBLE}:
             return
 
-        winners_matches = [match for match in matches if match.bracket_type == _BRACKET_WINNERS]
-        winners_index = {
-            (match.round, match.position): match
-            for match in winners_matches
-        }
+        winners_matches, winners_index, grand_final = MatchService._winners_bracket_context(matches)
 
-        grand_final = next(
-            (match for match in matches if match.bracket_type == _BRACKET_GRAND_FINAL),
-            None,
-        )
+        MatchService._assign_winners_next_ids(winners_matches, winners_index, elimination_type, grand_final)
 
+        if elimination_type != _FORMAT_DOUBLE:
+            return
+
+        losers_matches = MatchService._loser_bracket_matches(matches)
+        losers_index = MatchService._match_index_by_round_position(losers_matches)
+        MatchService._assign_losers_next_ids(losers_matches, losers_index, grand_final)
+
+        if grand_final is not None:
+            grand_final.next_match_id = None
+
+    @staticmethod
+    def _winners_bracket_context(
+        matches: list[MatchModel],
+    ) -> tuple[list[MatchModel], dict[tuple[int, int], MatchModel], MatchModel | None]:
+        winners_matches = MatchService._winner_bracket_matches(matches)
+        winners_index = MatchService._match_index_by_round_position(winners_matches)
+        grand_final = MatchService._get_grand_final_match(matches)
+        return winners_matches, winners_index, grand_final
+
+    @staticmethod
+    def _assign_winners_next_ids(
+        winners_matches: list[MatchModel],
+        winners_index: dict[tuple[int, int], MatchModel],
+        elimination_type: str,
+        grand_final: MatchModel | None,
+    ) -> None:
         for match in winners_matches:
             next_match = winners_index.get((match.round + 1, match.position // 2))
             if next_match is not None:
@@ -159,15 +352,12 @@ class MatchService:
             else:
                 match.next_match_id = None
 
-        if elimination_type != _FORMAT_DOUBLE:
-            return
-
-        losers_matches = [match for match in matches if match.bracket_type == _BRACKET_LOSERS]
-        losers_index = {
-            (match.round, match.position): match
-            for match in losers_matches
-        }
-
+    @staticmethod
+    def _assign_losers_next_ids(
+        losers_matches: list[MatchModel],
+        losers_index: dict[tuple[int, int], MatchModel],
+        grand_final: MatchModel | None,
+    ) -> None:
         for match in losers_matches:
             if match.round % 2 == 1:
                 next_key = (match.round + 1, match.position)
@@ -181,9 +371,6 @@ class MatchService:
                 match.next_match_id = grand_final.id
             else:
                 match.next_match_id = None
-
-        if grand_final is not None:
-            grand_final.next_match_id = None
 
     def _build_match_models(
         self, tournament, tournament_id: int, participants: list[tuple[int, int]]
@@ -202,43 +389,23 @@ class MatchService:
         )
 
     def start_tournament(self, tournament_id: int, admin_id: int) -> BracketResponse:
-        tournament = self.tournament_repo.get_by_id(tournament_id)
-        if tournament is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Torneo no encontrado")
-        if tournament.creator_id != admin_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Solo el administrador puede iniciar el torneo",
-            )
-        if tournament.status != _STATUS_READY_TO_START:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El torneo no está en estado 'Listo para iniciar'",
-            )
+        tournament = self._get_existing_tournament(tournament_id)
+        self._ensure_creator_action(tournament, admin_id, "Solo el administrador puede iniciar el torneo")
+        self._ensure_tournament_status(
+            tournament.status,
+            _STATUS_READY_TO_START,
+            "El torneo no está en estado 'Listo para iniciar'",
+        )
 
         if tournament.elimination_type in _FORMATS_WITH_BRACKET:
             self._activate_round1_with_bracket(tournament_id)
         else:
-            for m in self.match_repo.get_by_tournament(tournament_id):
-                m.status = _STATUS_IN_PROGRESS
+            self._activate_non_bracket_matches(tournament_id)
 
-        tournament.status = _STATUS_IN_PROGRESS
-        self.audit_repo.record(
-            action="INICIAR_TORNEO",
-            user_id=admin_id,
-            created_at=datetime.now(),
-            change_description=f"tournament_id={tournament_id}",
-        )
-        self.match_repo.flush()
-        self.match_repo.commit()
-        self.match_repo.refresh(tournament)
+        self._persist_tournament_start(tournament, tournament_id, admin_id)
 
         matches = self.match_repo.get_by_tournament(tournament_id)
-        return BracketResponse(
-            tournament_id=tournament_id,
-            tournament_status=tournament.status,
-            matches=[MatchResponse.model_validate(m) for m in matches],
-        )
+        return self._to_bracket_response(tournament_id, tournament.status, matches)
 
     def _activate_round1_with_bracket(self, tournament_id: int) -> None:
         for bye in self.match_repo.get_round1_byes(tournament_id):
@@ -258,59 +425,121 @@ class MatchService:
         score_player1: int | None = None,
         score_player2: int | None = None,
     ) -> ResultResponse:
-        tournament = self._get_tournament_in_progress(tournament_id, admin_id)
-        match = self._get_playable_match(tournament_id, match_id)
-        self._validate_winner(match, winner_id)
+        result_data = self._process_record_result(
+            tournament_id=tournament_id,
+            match_id=match_id,
+            winner_id=winner_id,
+            admin_id=admin_id,
+            score_player1=score_player1,
+            score_player2=score_player2,
+        )
+        return self._build_result_response_from_data(result_data)
 
-        loser_id = match.player2_id if winner_id == match.player1_id else match.player1_id
-        new_winner_elo, new_loser_elo = self._apply_elo(winner_id, loser_id, match_id=match.id)
+    def _process_record_result(
+        self,
+        tournament_id: int,
+        match_id: int,
+        winner_id: int,
+        admin_id: int,
+        score_player1: int | None,
+        score_player2: int | None,
+    ) -> dict:
+        result_data = self._compute_result_data(
+            tournament_id, match_id, winner_id, admin_id, (score_player1, score_player2)
+        )
+        tournament, match, winner_new_elo, loser_new_elo, tournament_finished = result_data
+        self._finalize_record_result(tournament_id, match, winner_id, admin_id, tournament, tournament_finished)
+        return self._result_data(match, winner_new_elo, loser_new_elo, tournament_finished)
 
+    def _compute_result_data(
+        self,
+        tournament_id: int,
+        match_id: int,
+        winner_id: int,
+        admin_id: int,
+        scores: tuple[int | None, int | None],
+    ) -> tuple:
+        score_player1, score_player2 = scores
+        tournament, match = self._prepare_record_result_context(tournament_id, match_id, winner_id, admin_id)
+        winner_new_elo, loser_new_elo, tournament_finished = self._apply_result_and_compute_elo(
+            tournament, match, tournament_id, winner_id, score_player1, score_player2
+        )
+        return tournament, match, winner_new_elo, loser_new_elo, tournament_finished
+
+    def _finalize_record_result(
+        self,
+        tournament_id: int,
+        match: MatchModel,
+        winner_id: int,
+        admin_id: int,
+        tournament,
+        tournament_finished: bool,
+    ) -> None:
+        self._record_match_result_audit(
+            tournament_id=tournament_id,
+            match_id=match.id,
+            winner_id=winner_id,
+            admin_id=admin_id,
+            tournament_finished=tournament_finished,
+            tournament=tournament,
+        )
+        self._persist_match_result(match)
+
+    @staticmethod
+    def _result_data(
+        match: MatchModel,
+        winner_new_elo: int,
+        loser_new_elo: int,
+        tournament_finished: bool,
+    ) -> dict:
+        return {
+            "match": match,
+            "winner_new_elo": winner_new_elo,
+            "loser_new_elo": loser_new_elo,
+            "tournament_finished": tournament_finished,
+        }
+
+    @staticmethod
+    def _apply_match_result(
+        match: MatchModel,
+        tournament,
+        winner_id: int,
+        score_player1: int | None,
+        score_player2: int | None,
+    ) -> None:
         match.winner_id = winner_id
         uses_score = bool(getattr(tournament, "uses_score", False))
+
         if uses_score:
-            if score_player1 is None or score_player2 is None:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Este torneo requiere score_player1 y score_player2",
-                )
-            match.score_player1 = score_player1
-            match.score_player2 = score_player2
-            match.result = f"Score final: {score_player1}-{score_player2}"
-            match.score_detail = f"{score_player1}-{score_player2}"
+            MatchService._apply_score_result(match, score_player1, score_player2)
         else:
-            match.score_player1 = None
-            match.score_player2 = None
-            match.result = f"Ganador: jugador {winner_id}"
-            match.score_detail = f"winner_id={winner_id}"
+            MatchService._apply_winner_only_result(match, winner_id)
+
         match.status = _STATUS_FINISHED
 
-        tournament_finished = self._advance_by_format(tournament_id, tournament, match, winner_id, loser_id)
-
-        self.audit_repo.record(
-            action="REGISTRAR_RESULTADO",
-            user_id=admin_id,
-            created_at=datetime.now(),
-            change_description=f"match_id={match.id},winner_id={winner_id}",
-        )
-        if tournament_finished:
-            tournament.status = _STATUS_FINISHED
-            self.audit_repo.record(
-                action="FINALIZAR_TORNEO",
-                user_id=admin_id,
-                created_at=datetime.now(),
-                change_description=f"tournament_id={tournament_id}",
+    @staticmethod
+    def _apply_score_result(
+        match: MatchModel,
+        score_player1: int | None,
+        score_player2: int | None,
+    ) -> None:
+        if score_player1 is None or score_player2 is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Este torneo requiere score_player1 y score_player2",
             )
 
-        self.match_repo.flush()
-        self.match_repo.commit()
-        self.match_repo.refresh(match)
+        match.score_player1 = score_player1
+        match.score_player2 = score_player2
+        match.result = f"Score final: {score_player1}-{score_player2}"
+        match.score_detail = f"{score_player1}-{score_player2}"
 
-        return ResultResponse(
-            match=MatchResponse.model_validate(match),
-            winner_new_elo=new_winner_elo,
-            loser_new_elo=new_loser_elo,
-            tournament_finished=tournament_finished,
-        )
+    @staticmethod
+    def _apply_winner_only_result(match: MatchModel, winner_id: int) -> None:
+        match.score_player1 = None
+        match.score_player2 = None
+        match.result = f"Ganador: jugador {winner_id}"
+        match.score_detail = f"winner_id={winner_id}"
 
     def _get_tournament_in_progress(self, tournament_id: int, admin_id: int):
         tournament = self.tournament_repo.get_by_id(tournament_id)
@@ -494,6 +723,42 @@ class MatchService:
             p <<= 1
         return p
 
+    @staticmethod
+    def _round1_players_for_position(
+        participants: list[tuple[int, int]],
+        pos: int,
+        bye_count: int,
+        n: int,
+    ) -> tuple[int, int | None]:
+        if pos < bye_count:
+            return participants[pos][0], None
+
+        offset = pos - bye_count
+        p1_idx = bye_count + offset * 2
+        p2_idx = p1_idx + 1
+        j1_id = participants[p1_idx][0]
+        j2_id = participants[p2_idx][0] if p2_idx < n else None
+        return j1_id, j2_id
+
+    @staticmethod
+    def _scheduled_winner_match(
+        tournament_id: int,
+        round_number: int,
+        position: int,
+        player1_id: int,
+        player2_id: int | None,
+    ) -> MatchModel:
+        return MatchModel(
+            tournament_id=tournament_id,
+            round=round_number,
+            position=position,
+            bracket_type=_BRACKET_WINNERS,
+            player1_id=player1_id,
+            player2_id=player2_id,
+            winner_id=None,
+            status=_STATUS_SCHEDULED,
+        )
+
     def _seed_round1_winners(
         self, tournament_id: int, participants: list[tuple[int, int]]
     ) -> list[MatchModel]:
@@ -503,21 +768,8 @@ class MatchService:
 
         matches: list[MatchModel] = []
         for pos in range(p // 2):
-            if pos < bye_count:
-                j1_id = participants[pos][0]
-                j2_id = None
-            else:
-                offset = pos - bye_count
-                p1_idx = bye_count + offset * 2
-                p2_idx = p1_idx + 1
-                j1_id = participants[p1_idx][0]
-                j2_id = participants[p2_idx][0] if p2_idx < n else None
-            matches.append(MatchModel(
-                tournament_id=tournament_id, round=1, position=pos,
-                bracket_type=_BRACKET_WINNERS,
-                player1_id=j1_id, player2_id=j2_id,
-                winner_id=None, status=_STATUS_SCHEDULED,
-            ))
+            j1_id, j2_id = self._round1_players_for_position(participants, pos, bye_count, n)
+            matches.append(self._scheduled_winner_match(tournament_id, 1, pos, j1_id, j2_id))
         return matches
 
     def _empty_winners_rounds(
@@ -553,26 +805,54 @@ class MatchService:
 
         all_matches = self._seed_round1_winners(tournament_id, participants)
         all_matches += self._empty_winners_rounds(tournament_id, p, 2, wb_rounds)
-
-        for round in range(1, lb_rounds + 1):
-            k = (round + 1) // 2
-            matches_in_round = p // (2 ** (k + 1))
-            for pos in range(matches_in_round):
-                all_matches.append(MatchModel(
-                    tournament_id=tournament_id, round=round, position=pos,
-                    bracket_type=_BRACKET_LOSERS,
-                    player1_id=None, player2_id=None,
-                    winner_id=None, status=_STATUS_PENDING,
-                ))
-
-        all_matches.append(MatchModel(
-            tournament_id=tournament_id, round=1, position=0,
-            bracket_type=_BRACKET_GRAND_FINAL,
-            player1_id=None, player2_id=None,
-            winner_id=None, status=_STATUS_PENDING,
-        ))
+        all_matches += self._build_losers_bracket_pending_matches(tournament_id, p, lb_rounds)
+        all_matches.append(self._build_pending_grand_final(tournament_id))
 
         return all_matches
+
+    @staticmethod
+    def _build_losers_bracket_pending_matches(
+        tournament_id: int,
+        p: int,
+        lb_rounds: int,
+    ) -> list[MatchModel]:
+        matches: list[MatchModel] = []
+        for round_number in range(1, lb_rounds + 1):
+            matches_in_round = MatchService._losers_matches_in_round(p, round_number)
+            for pos in range(matches_in_round):
+                matches.append(MatchService._build_pending_loser_match(tournament_id, round_number, pos))
+        return matches
+
+    @staticmethod
+    def _losers_matches_in_round(p: int, round_number: int) -> int:
+        k = (round_number + 1) // 2
+        return p // (2 ** (k + 1))
+
+    @staticmethod
+    def _build_pending_loser_match(tournament_id: int, round_number: int, position: int) -> MatchModel:
+        return MatchModel(
+            tournament_id=tournament_id,
+            round=round_number,
+            position=position,
+            bracket_type=_BRACKET_LOSERS,
+            player1_id=None,
+            player2_id=None,
+            winner_id=None,
+            status=_STATUS_PENDING,
+        )
+
+    @staticmethod
+    def _build_pending_grand_final(tournament_id: int) -> MatchModel:
+        return MatchModel(
+            tournament_id=tournament_id,
+            round=1,
+            position=0,
+            bracket_type=_BRACKET_GRAND_FINAL,
+            player1_id=None,
+            player2_id=None,
+            winner_id=None,
+            status=_STATUS_PENDING,
+        )
 
     def _build_round_robin(
         self, tournament_id: int, participants: list[tuple[int, int]]
@@ -617,30 +897,61 @@ class MatchService:
 
         while len(available) >= 2:
             j1 = available.pop(0)
-            rival = None
-            for i, j2 in enumerate(available):
-                pair = (min(j1, j2), max(j1, j2))
-                if pair not in played_pairs:
-                    rival = available.pop(i)
-                    break
-            if rival is None:
-                rival = available.pop(0)
-
-            matches.append(MatchModel(
-                tournament_id=tournament_id, round=round, position=pos,
-                bracket_type=_BRACKET_WINNERS,
-                player1_id=j1, player2_id=rival,
-                winner_id=None, status=_STATUS_IN_PROGRESS,
-            ))
+            rival = MatchService._select_swiss_rival(j1, available, played_pairs)
+            matches.append(MatchService._build_in_progress_match(tournament_id, round, pos, j1, rival))
             pos += 1
 
         if available:
             bye_player = available[0]
-            matches.append(MatchModel(
-                tournament_id=tournament_id, round=round, position=pos,
-                bracket_type=_BRACKET_WINNERS,
-                player1_id=bye_player, player2_id=None,
-                winner_id=bye_player, status=_STATUS_FINISHED,
-            ))
+            matches.append(MatchService._build_bye_match(tournament_id, round, pos, bye_player))
 
         return matches
+
+    @staticmethod
+    def _select_swiss_rival(
+        player_id: int,
+        available: list[int],
+        played_pairs: set[tuple[int, int]],
+    ) -> int:
+        for index, candidate in enumerate(available):
+            pair = (min(player_id, candidate), max(player_id, candidate))
+            if pair not in played_pairs:
+                return available.pop(index)
+        return available.pop(0)
+
+    @staticmethod
+    def _build_in_progress_match(
+        tournament_id: int,
+        round_number: int,
+        position: int,
+        player1_id: int,
+        player2_id: int,
+    ) -> MatchModel:
+        return MatchModel(
+            tournament_id=tournament_id,
+            round=round_number,
+            position=position,
+            bracket_type=_BRACKET_WINNERS,
+            player1_id=player1_id,
+            player2_id=player2_id,
+            winner_id=None,
+            status=_STATUS_IN_PROGRESS,
+        )
+
+    @staticmethod
+    def _build_bye_match(
+        tournament_id: int,
+        round_number: int,
+        position: int,
+        bye_player: int,
+    ) -> MatchModel:
+        return MatchModel(
+            tournament_id=tournament_id,
+            round=round_number,
+            position=position,
+            bracket_type=_BRACKET_WINNERS,
+            player1_id=bye_player,
+            player2_id=None,
+            winner_id=bye_player,
+            status=_STATUS_FINISHED,
+        )

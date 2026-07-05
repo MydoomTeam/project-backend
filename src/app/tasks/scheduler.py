@@ -6,9 +6,9 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.database import SessionLocal
 from app.domain.constants import SYSTEM_ADMIN_ID
+from app.models.match import MatchModel
 from app.repositories.alert_repository import AlertRepository
 from app.repositories.audit_log_repository import AuditLogRepository
-from app.models.match import MatchModel
 
 logger = logging.getLogger(__name__)
 

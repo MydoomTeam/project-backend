@@ -29,7 +29,11 @@ def search_players(
 
 
 @router.get("/players/{player_id}", response_model=PlayerRead)
-def get_player(player_id: int, db: Session = Depends(get_db)):
+def get_player(
+    player_id: int,
+    db: Session = Depends(get_db),
+    _current_user: int = Depends(get_current_user),
+):
     player = PlayerService(db).get_player(player_id)
     if player is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jugador no encontrado")
@@ -37,7 +41,11 @@ def get_player(player_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/players/{player_id}/tournaments", response_model=list[PlayerTournamentHistoryItem])
-def get_player_tournaments(player_id: int, db: Session = Depends(get_db)):
+def get_player_tournaments(
+    player_id: int,
+    db: Session = Depends(get_db),
+    _current_user: int = Depends(get_current_user),
+):
     return PlayerService(db).get_player_tournament_history(player_id)
 
 

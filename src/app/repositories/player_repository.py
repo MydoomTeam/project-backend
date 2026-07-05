@@ -28,7 +28,15 @@ class PlayerRepository:
         if existing is not None:
             return existing
 
-        player = Player(
+        player = self._build_system_user(player_id)
+        self.db.add(player)
+        self.db.commit()
+        self.db.refresh(player)
+        return player
+
+    @staticmethod
+    def _build_system_user(player_id: int) -> Player:
+        return Player(
             id=player_id,
             username="system",
             email="system@localhost",
@@ -37,10 +45,6 @@ class PlayerRepository:
             last_access_date=date.today(),
             global_elo=0,
         )
-        self.db.add(player)
-        self.db.commit()
-        self.db.refresh(player)
-        return player
 
     def next_id(self) -> int:
         stmt = select(Player).order_by(Player.id.desc())

@@ -27,6 +27,15 @@ _ACTION_LABELS: dict[str, str] = {
     "ACK_ALERTA": "Alerta reconocida",
 }
 
+_NATURAL_ACTION_MESSAGES: dict[str, str] = {
+    "CREAR_TORNEO": "Se creo el torneo {tournament}.",
+    "CANCELAR_TORNEO": "Se cancelo el torneo {tournament}.",
+    "GENERAR_BRACKET": "Se genero el bracket del torneo {tournament}.",
+    "INICIAR_TORNEO": "El torneo {tournament} inicio.",
+    "FINALIZAR_TORNEO": "El torneo {tournament} finalizo.",
+    "REGISTRAR_RESULTADO": "Se registro un resultado de partida en {tournament}.",
+}
+
 
 class AlertService:
     def __init__(self, alert_repo: AlertRepository, audit_repo: AuditLogRepository, db: Session | None = None):
@@ -38,39 +47,53 @@ class AlertService:
     def from_session(cls, db: Session) -> "AlertService":
         return cls(AlertRepository(db), AuditLogRepository(db), db)
 
+    @staticmethod
+    def _build_stats(alerts: list[AlertResponse]) -> dict[str, int]:
+        return {
+            "total": len(alerts),
+            "new": sum(1 for alert in alerts if alert.status == "nueva"),
+            "acknowledged": sum(1 for alert in alerts if alert.status == "reconocida"),
+            "critical": sum(
+                1
+                for alert in alerts
+                if alert.event_type == "match_overdue" and alert.status == "nueva"
+            ),
+        }
+
+    @staticmethod
+    def _normalize_logs(logs) -> list:
+        if logs is None:
+            return []
+        try:
+            iter(logs)
+        except TypeError:
+            return []
+        return list(logs)
+
+    def _build_global_history(self) -> list[AlertActivityResponse]:
+        recent_logs = self._normalize_logs(self.audit_repo.list_recent(limit=12))
+        return [
+            AlertActivityResponse(
+                id=log.id,
+                action=log.action,
+                action_label=_ACTION_LABELS.get(log.action),
+                created_at=log.created_at,
+                description=log.change_description,
+            )
+            for log in recent_logs
+            if log.action != "CHECK_OVERDUE_OK"
+        ]
+
     def get_alerts(self, viewer_id: int | None = None) -> dict:
         alerts = [self._to_response(alert) for alert in self.alert_repo.get_all()]
         if viewer_id is None:
-            recent_logs = self.audit_repo.list_recent(limit=12)
-            if recent_logs is None:
-                recent_logs = []
-            else:
-                try:
-                    iter(recent_logs)
-                except TypeError:
-                    recent_logs = []
-
-            history = [
-                AlertActivityResponse(
-                    id=log.id,
-                    action=log.action,
-                    action_label=_ACTION_LABELS.get(log.action),
-                    created_at=log.created_at,
-                    description=log.change_description,
-                )
-                for log in recent_logs
-                if log.action != "CHECK_OVERDUE_OK"
-            ]
+            history = self._build_global_history()
         else:
             history = self._build_visible_history(viewer_id)
+
         return {
             "items": alerts,
-            "stats": {
-                "total": len(alerts),
-                "new": sum(1 for alert in alerts if alert.status == "nueva"),
-                "acknowledged": sum(1 for alert in alerts if alert.status == "reconocida"),
-                "critical": sum(1 for alert in alerts if alert.event_type == "match_overdue" and alert.status == "nueva"),
-            },
+            "stats": self._build_stats(alerts),
             "history": history,
         }
 
@@ -105,7 +128,11 @@ class AlertService:
         if not visible_tournament_ids:
             return []
 
-        tournament_names = dict(
+        tournament_names = self._get_tournament_names(visible_tournament_ids)
+        return self._collect_visible_history_entries(visible_tournament_ids, tournament_names)
+
+    def _get_tournament_names(self, visible_tournament_ids: set[int]) -> dict[int, str]:
+        return dict(
             self.db.execute(
                 select(TournamentModel.id, TournamentModel.name).where(
                     TournamentModel.id.in_(visible_tournament_ids),
@@ -113,8 +140,14 @@ class AlertService:
             ).all()
         )
 
+    def _collect_visible_history_entries(
+        self,
+        visible_tournament_ids: set[int],
+        tournament_names: dict[int, str],
+    ) -> list[AlertActivityResponse]:
         history: list[AlertActivityResponse] = []
-        for log in self.audit_repo.list_recent(limit=80):
+        recent_logs = self._normalize_logs(self.audit_repo.list_recent(limit=80))
+        for log in recent_logs:
             if log.action in {"CHECK_OVERDUE_OK", "CREATE_ALERTA", "CREATE_ALERTA_FAILED"}:
                 continue
             entry = self._to_activity(log, visible_tournament_ids, tournament_names)
@@ -147,6 +180,14 @@ class AlertService:
     def _extract_tournament_id(self, log) -> int | None:
         description = (log.change_description or "").strip()
 
+        tournament_id = self._extract_tournament_id_from_description(description)
+        if tournament_id is not None:
+            return tournament_id
+
+        return self._extract_tournament_id_from_match(description)
+
+    @staticmethod
+    def _extract_tournament_id_from_description(description: str) -> int | None:
         match = _TOURNAMENT_ID_EQ_PATTERN.search(description)
         if match:
             return int(match.group(1))
@@ -155,15 +196,19 @@ class AlertService:
         if match:
             return int(match.group(1))
 
-        match = _MATCH_ID_PATTERN.search(description)
-        if match and self.db is not None:
-            match_id = int(match.group(1))
-            match_row = self.db.execute(
-                select(MatchModel.tournament_id).where(MatchModel.id == match_id)
-            ).first()
-            if match_row:
-                return int(match_row[0])
+        return None
 
+    def _extract_tournament_id_from_match(self, description: str) -> int | None:
+        match = _MATCH_ID_PATTERN.search(description)
+        if not match or self.db is None:
+            return None
+
+        match_id = int(match.group(1))
+        match_row = self.db.execute(
+            select(MatchModel.tournament_id).where(MatchModel.id == match_id)
+        ).first()
+        if match_row:
+            return int(match_row[0])
         return None
 
     def _to_activity(
@@ -176,9 +221,16 @@ class AlertService:
         if tournament_id is None or tournament_id not in visible_tournament_ids:
             return None
 
+        return self._build_activity_entry(log, tournament_id, tournament_names)
+
+    def _build_activity_entry(
+        self,
+        log,
+        tournament_id: int,
+        tournament_names: dict[int, str],
+    ) -> AlertActivityResponse:
         tournament_name = tournament_names.get(tournament_id)
         action_label = _ACTION_LABELS.get(log.action, "Actividad del torneo")
-
         description = self._to_natural_description(log.action, log.change_description, tournament_name)
         return AlertActivityResponse(
             id=log.id,
@@ -193,19 +245,10 @@ class AlertService:
     @staticmethod
     def _to_natural_description(action: str, change_description: str | None, tournament_name: str | None) -> str:
         tournament_label = tournament_name or "torneo"
+        template = _NATURAL_ACTION_MESSAGES.get(action)
+        if template is not None:
+            return template.format(tournament=tournament_label)
 
-        if action == "CREAR_TORNEO":
-            return f"Se creo el torneo {tournament_label}."
-        if action == "CANCELAR_TORNEO":
-            return f"Se cancelo el torneo {tournament_label}."
-        if action == "GENERAR_BRACKET":
-            return f"Se genero el bracket del torneo {tournament_label}."
-        if action == "INICIAR_TORNEO":
-            return f"El torneo {tournament_label} inicio."
-        if action == "FINALIZAR_TORNEO":
-            return f"El torneo {tournament_label} finalizo."
-        if action == "REGISTRAR_RESULTADO":
-            return f"Se registro un resultado de partida en {tournament_label}."
         if action == "UPDATE_REGISTRATION_STATUS":
             detail = (change_description or "").strip()
             status_match = _PLAYER_STATUS_PATTERN.search(detail)
