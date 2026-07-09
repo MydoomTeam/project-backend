@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -21,15 +21,6 @@ test_engine = create_engine(
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
-
-
-@event.listens_for(test_engine, "connect")
-def _enable_sqlite_foreign_keys(dbapi_connection: Any, _connection_record: Any) -> None:
-    # SQLite no enforza FKs por defecto; las activamos para detectar
-    # violaciones que de otro modo quedarían ocultas (ADR-006).
-    cursor: Any = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
 
 
 database.engine = test_engine
